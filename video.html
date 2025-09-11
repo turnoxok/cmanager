@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Editor Video + Logo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; text-align: center; margin:0; padding:20px; background:#f9f9f9; }
+    h1 { font-size: 1.4rem; margin-bottom: 1rem; }
+    input, button { display: block; width: 100%; max-width: 320px; margin:10px auto; padding:12px; font-size:1rem; border-radius:8px; border:1px solid #ccc; }
+    button { background:#0077ff; color:white; font-weight:bold; border:none; }
+    button:active { background:#005fcc; }
+    #editorCanvas { margin:20px auto; max-width:100%; border:2px dashed #666; touch-action:none; background:#000; }
+  </style>
+</head>
+<body>
+  <h1>Editor Video + Logo</h1>
+
+  <input type="file" id="videoInput" accept="video/*">
+  <input type="file" id="logoInput" accept="image/png">
+  <button id="downloadBtn">📥 Exportar Frame</button>
+
+  <canvas id="editorCanvas"></canvas>
+  <canvas id="finalCanvas" style="display:none;"></canvas>
+
+  <script>
+    const editorCanvas = document.getElementById("editorCanvas");
+    const ctx = editorCanvas.getContext("2d");
+    const finalCanvas = document.getElementById("finalCanvas");
+    const fctx = finalCanvas.getContext("2d");
+
+    // Canvas fijo 1080x1350
+    const WIDTH = 1080;
+    const HEIGHT = 1350;
+    editorCanvas.width = WIDTH;
+    editorCanvas.height = HEIGHT;
+
+    let video = null;
+    let logoImg = null;
+
+    // Estado del logo
+    let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
+
+    // Gestos
+    let dragging = false;
+    let dragTarget = null;
+    let startX = 0, startY = 0, lastDist = null;
+
+    function drawEditor() {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0,0,WIDTH,HEIGHT);
+
+      // Video centrado, adaptado a 1080x1350
+      if(video && video.readyState >= 2){
+        let videoRatio = video.videoWidth / video.videoHeight;
+        let canvasRatio = WIDTH / HEIGHT;
+        let drawW = WIDTH, drawH = HEIGHT;
+        if(videoRatio > canvasRatio){
+          drawH = HEIGHT;
+          drawW = HEIGHT * videoRatio;
+        } else {
+          drawW = WIDTH;
+          drawH = WIDTH / videoRatio;
+        }
+        ctx.drawImage(video, (WIDTH - drawW)/2, (HEIGHT - drawH)/2, drawW, drawH);
+      }
+
+      // Logo
+      if(logoImg){
+        ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+      }
+    }
+
+    function loop(){
+      drawEditor();
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById("videoInput").addEventListener("change", e=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const url = URL.createObjectURL(file);
+      video = document.createElement("video");
+      video.src = url;
+      video.loop = true;
+      video.muted = true;
+      video.play();
+      video.onloadeddata = ()=>drawEditor();
+    });
+
+    document.getElementById("logoInput").addEventListener("change", e=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ev=>{
+        logoImg = new Image();
+        logoImg.onload = ()=>drawEditor();
+        logoImg.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    editorCanvas.addEventListener("touchstart", e=>{
+      const rect = editorCanvas.getBoundingClientRect();
+      const x = (e.touches[0].clientX - rect.left)*(WIDTH/rect.width);
+      const y = (e.touches[0].clientY - rect.top)*(HEIGHT/rect.height);
+
+      if(e.touches.length===1){
+        if(logoImg && x>=logoX && x<=logoX+logoW && y>=logoY && y<=logoY+logoH){
+          dragTarget = "logo";
+        } else {
+          dragTarget = null;
+        }
+        dragging=true;
+        startX=x; startY=y;
+      } else if(e.touches.length===2){
+        const p1 = {x:(e.touches[0].clientX-rect.left)*(WIDTH/rect.width), y:(e.touches[0].clientY-rect.top)*(HEIGHT/rect.height)};
+        const p2 = {x:(e.touches[1].clientX-rect.left)*(WIDTH/rect.width), y:(e.touches[1].clientY-rect.top)*(HEIGHT/rect.height)};
+        if([p1,p2].every(p=>p.x>=logoX && p.x<=logoX+logoW && p.y>=logoY && p.y<=logoY+logoH)){
+          dragTarget="logo";
+        } else { dragTarget=null; }
+        lastDist=getDist(e.touches);
+      }
+    });
+
+    editorCanvas.addEventListener("touchmove", e=>{
+      e.preventDefault();
+      const rect = editorCanvas.getBoundingClientRect();
+      const x = (e.touches[0].clientX - rect.left)*(WIDTH/rect.width);
+      const y = (e.touches[0].clientY - rect.top)*(HEIGHT/rect.height);
+
+      if(e.touches.length===1 && dragging && dragTarget==="logo"){
+        const dx = x-startX;
+        const dy = y-startY;
+        logoX+=dx; logoY+=dy;
+        startX=x; startY=y;
+      } else if(e.touches.length===2 && lastDist && dragTarget==="logo"){
+        const dist = getDist(e.touches);
+        const zoom = dist/lastDist;
+        const centerX=logoX+logoW/2;
+        const centerY=logoY+logoH/2;
+        logoW*=zoom; logoH*=zoom;
+        logoX=centerX-logoW/2; logoY=centerY-logoH/2;
+        lastDist=dist;
+      }
+    });
+
+    editorCanvas.addEventListener("touchend", e=>{
+      if(e.touches.length===0) dragging=false;
+      if(e.touches.length<2) lastDist=null;
+    });
+
+    function getDist(touches){
+      const dx=touches[0].clientX-touches[1].clientX;
+      const dy=touches[0].clientY-touches[1].clientY;
+      return Math.sqrt(dx*dx+dy*dy);
+    }
+
+    document.getElementById("downloadBtn").addEventListener("click", ()=>{
+      if(!video) return alert("Subí un video primero.");
+      finalCanvas.width=WIDTH; finalCanvas.height=HEIGHT;
+      drawEditorToCanvas(finalCanvas.getContext("2d"));
+      const link=document.createElement("a");
+      link.download="frame.png";
+      link.href=finalCanvas.toDataURL("image/png");
+      link.click();
+    });
+
+    function drawEditorToCanvas(targetCtx){
+      targetCtx.fillStyle="#000";
+      targetCtx.fillRect(0,0,WIDTH,HEIGHT);
+      if(video && video.readyState>=2){
+        let videoRatio = video.videoWidth/video.videoHeight;
+        let canvasRatio = WIDTH/HEIGHT;
+        let drawW=WIDTH, drawH=HEIGHT;
+        if(videoRatio>canvasRatio){ drawH=HEIGHT; drawW=HEIGHT*videoRatio; } else { drawW=WIDTH; drawH=WIDTH/videoRatio; }
+        targetCtx.drawImage(video,(WIDTH-drawW)/2,(HEIGHT-drawH)/2,drawW,drawH);
+      }
+      if(logoImg) targetCtx.drawImage(logoImg,logoX,logoY,logoW,logoH);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
