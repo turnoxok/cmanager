@@ -1,3 +1,4 @@
+
 const canvas = document.getElementById('editorCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -41,7 +42,7 @@ document.getElementById('videoInput').addEventListener('change', e => {
   if (!file) return;
   video = document.createElement('video');
   video.src = URL.createObjectURL(file);
-  video.loop = false; // importante para usar onended
+  video.loop = true;
   video.muted = false;
   video.play();
 
@@ -189,7 +190,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   mediaRecorder.start();
   alert("Grabando todo el video completo... Presiona OK y espera que termine.");
 
-  // Detener grabación **300ms después** de que termine el video
-  const duration = video.duration * 1000 + 300;
-  setTimeout(() => mediaRecorder.stop(), duration);
+  const duration = video.duration * 1000 + 200; // 200ms extra
+setTimeout(()=>mediaRecorder.stop(), duration);
+  
 });
