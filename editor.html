@@ -132,3 +132,116 @@
           dragTarget = "logo";
         } else {
           dragTarget = "bg";
+        }
+        dragging = true;
+        startX = x;
+        startY = y;
+      } else if (e.touches.length === 2) {
+        // Averiguamos si el pinch arranca sobre el logo
+        const rect = editorCanvas.getBoundingClientRect();
+        const p1 = {
+          x: (e.touches[0].clientX - rect.left) * (editorCanvas.width / rect.width),
+          y: (e.touches[0].clientY - rect.top) * (editorCanvas.height / rect.height)
+        };
+        const p2 = {
+          x: (e.touches[1].clientX - rect.left) * (editorCanvas.width / rect.width),
+          y: (e.touches[1].clientY - rect.top) * (editorCanvas.height / rect.height)
+        };
+        const bothOnLogo = [p1, p2].every(p =>
+          p.x >= logoX && p.x <= logoX + logoW && p.y >= logoY && p.y <= logoY + logoH
+        );
+        dragTarget = bothOnLogo ? "logo" : "bg";
+        lastDist = getDist(e.touches);
+      }
+    });
+
+    editorCanvas.addEventListener("touchmove", e => {
+      e.preventDefault();
+      const rect = editorCanvas.getBoundingClientRect();
+      const x = (e.touches[0].clientX - rect.left) * (editorCanvas.width / rect.width);
+      const y = (e.touches[0].clientY - rect.top) * (editorCanvas.height / rect.height);
+
+      if (e.touches.length === 1 && dragging) {
+        const dx = x - startX;
+        const dy = y - startY;
+
+        if (dragTarget === "bg") {
+          imgX += dx;
+          imgY += dy;
+        } else if (dragTarget === "logo") {
+          logoX += dx;
+          logoY += dy;
+        }
+
+        startX = x;
+        startY = y;
+        drawEditor();
+      } else if (e.touches.length === 2 && lastDist) {
+        const dist = getDist(e.touches);
+        const zoom = dist / lastDist;
+
+        if (dragTarget === "bg") {
+          imgScale *= zoom;
+        } else if (dragTarget === "logo") {
+          logoW *= zoom;
+          logoH *= zoom;
+          // Reposicionar al centro para que no se vaya de lugar
+          const centerX = logoX + logoW / (2 * zoom);
+          const centerY = logoY + logoH / (2 * zoom);
+          logoX = centerX - logoW / 2;
+          logoY = centerY - logoH / 2;
+        }
+
+        lastDist = dist;
+        drawEditor();
+      }
+    });
+
+    editorCanvas.addEventListener("touchend", e => {
+      if (e.touches.length === 0) dragging = false;
+      if (e.touches.length < 2) lastDist = null;
+    });
+
+    function getDist(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // ---------------- EXPORT ----------------
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      if (!baseImg) return alert("Subí primero una imagen.");
+      const ratio = parseFloat(document.getElementById("ratioSelect").value);
+      const width = 1080;
+      const height = width / ratio;
+      finalCanvas.width = width;
+      finalCanvas.height = height;
+
+      // Fondo
+      const iw = baseImg.width * imgScale * (width / editorCanvas.width);
+      const ih = baseImg.height * imgScale * (height / editorCanvas.height);
+      const dx = imgX * (width / editorCanvas.width) + width / 2 - iw / 2;
+      const dy = imgY * (height / editorCanvas.height) + height / 2 - ih / 2;
+      fctx.fillStyle = "#000";
+      fctx.fillRect(0, 0, width, height);
+      fctx.drawImage(baseImg, dx, dy, iw, ih);
+
+      // Logo
+      if (logoImg) {
+        const scaleX = width / editorCanvas.width;
+        const scaleY = height / editorCanvas.height;
+        fctx.drawImage(logoImg, logoX * scaleX, logoY * scaleY, logoW * scaleX, logoH * scaleY);
+      }
+
+      const link = document.createElement("a");
+      link.download = "export.png";
+      link.href = finalCanvas.toDataURL("image/png");
+      link.click();
+    });
+
+    document.getElementById("ratioSelect").addEventListener("change", updateEditorCanvas);
+    window.addEventListener("resize", updateEditorCanvas);
+    updateEditorCanvas();
+  </script>
+</body>
+</html>
