@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Editor con Logo y Recorte</title>
+  <title>Editor Redes Sociales</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
@@ -14,25 +14,17 @@
     }
     button { background: #0077ff; color: white; font-weight: bold; border: none; }
     button:active { background: #005fcc; }
-    #preview {
-      position: relative;
+    #editorCanvas {
       margin: 20px auto;
       max-width: 100%;
       border: 2px dashed #666;
-      overflow: hidden;
       touch-action: none;
-    }
-    #preview img {
-      position: absolute;
-      top: 0; left: 0;
-      transform-origin: center center;
-      user-select: none;
-      touch-action: none;
+      background: #000;
     }
   </style>
 </head>
 <body>
-  <h1>Editor con Logo</h1>
+  <h1>Editor con Recorte</h1>
 
   <input type="file" id="imgInput" accept="image/*">
   <input type="file" id="logoInput" accept="image/png">
@@ -45,41 +37,47 @@
 
   <button id="downloadBtn">📥 Exportar Imagen</button>
 
-  <div id="preview"></div>
-
-  <canvas id="canvas" style="display:none;"></canvas>
+  <canvas id="editorCanvas"></canvas>
+  <canvas id="finalCanvas" style="display:none;"></canvas>
 
   <script>
-    const preview = document.getElementById("preview");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+    const editorCanvas = document.getElementById("editorCanvas");
+    const editorCtx = editorCanvas.getContext("2d");
+    const finalCanvas = document.getElementById("finalCanvas");
+    const finalCtx = finalCanvas.getContext("2d");
 
     let baseImg = null;
     let logoImg = null;
-    let imgEl = null;
 
-    // Para mover/escala de la imagen
-    let scale = 1, offsetX = 0, offsetY = 0, dragging = false;
+    // Estado de la imagen
+    let imgX = 0, imgY = 0;
+    let scale = 1;
+    let dragging = false;
     let startX, startY, lastDist = null;
 
-    function updatePreviewSize() {
+    function updateEditorCanvas() {
       const ratio = parseFloat(document.getElementById("ratioSelect").value);
       const width = Math.min(window.innerWidth - 40, 320);
-      preview.style.width = width + "px";
-      preview.style.height = (width / ratio) + "px";
-      if (imgEl) centerImage();
+      editorCanvas.width = width;
+      editorCanvas.height = width / ratio;
+      drawEditor();
     }
 
-    function centerImage() {
-      scale = 1;
-      offsetX = preview.clientWidth/2;
-      offsetY = preview.clientHeight/2;
-      drawPreview();
-    }
-
-    function drawPreview() {
-      if (!imgEl) return;
-      imgEl.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale}) translate(-50%, -50%)`;
+    function drawEditor() {
+      editorCtx.fillStyle = "#000";
+      editorCtx.fillRect(0, 0, editorCanvas.width, editorCanvas.height);
+      if (baseImg) {
+        const iw = baseImg.width * scale;
+        const ih = baseImg.height * scale;
+        const dx = imgX + editorCanvas.width / 2 - iw / 2;
+        const dy = imgY + editorCanvas.height / 2 - ih / 2;
+        editorCtx.drawImage(baseImg, dx, dy, iw, ih);
+      }
+      if (logoImg) {
+        const logoW = editorCanvas.width * 0.25;
+        const logoH = logoW * (logoImg.height / logoImg.width);
+        editorCtx.drawImage(logoImg, editorCanvas.width - logoW - 10, editorCanvas.height - logoH - 10, logoW, logoH);
+      }
     }
 
     document.getElementById("imgInput").addEventListener("change", e => {
@@ -87,11 +85,13 @@
       if (!file) return;
       const reader = new FileReader();
       reader.onload = ev => {
-        if (imgEl) imgEl.remove();
-        imgEl = document.createElement("img");
-        imgEl.src = ev.target.result;
-        preview.appendChild(imgEl);
-        imgEl.onload = () => centerImage();
+        baseImg = new Image();
+        baseImg.onload = () => {
+          scale = editorCanvas.width / baseImg.width;
+          imgX = 0; imgY = 0;
+          drawEditor();
+        };
+        baseImg.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     });
@@ -102,40 +102,41 @@
       const reader = new FileReader();
       reader.onload = ev => {
         logoImg = new Image();
+        logoImg.onload = drawEditor;
         logoImg.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     });
 
-    // Gestos táctiles para mover y escalar
-    preview.addEventListener("touchstart", e => {
+    // Gestos táctiles
+    editorCanvas.addEventListener("touchstart", e => {
       if (e.touches.length === 1) {
         dragging = true;
-        startX = e.touches[0].clientX - offsetX;
-        startY = e.touches[0].clientY - offsetY;
+        startX = e.touches[0].clientX - imgX;
+        startY = e.touches[0].clientY - imgY;
       } else if (e.touches.length === 2) {
         lastDist = getDist(e.touches);
       }
     });
 
-    preview.addEventListener("touchmove", e => {
+    editorCanvas.addEventListener("touchmove", e => {
       e.preventDefault();
       if (e.touches.length === 1 && dragging) {
-        offsetX = e.touches[0].clientX - startX;
-        offsetY = e.touches[0].clientY - startY;
-        drawPreview();
+        imgX = e.touches[0].clientX - startX;
+        imgY = e.touches[0].clientY - startY;
+        drawEditor();
       } else if (e.touches.length === 2) {
         const dist = getDist(e.touches);
         if (lastDist) {
           const zoom = dist / lastDist;
           scale *= zoom;
-          drawPreview();
+          drawEditor();
         }
         lastDist = dist;
       }
     });
 
-    preview.addEventListener("touchend", e => {
+    editorCanvas.addEventListener("touchend", e => {
       if (e.touches.length === 0) dragging = false;
       if (e.touches.length < 2) lastDist = null;
     });
@@ -143,53 +144,43 @@
     function getDist(touches) {
       const dx = touches[0].clientX - touches[1].clientX;
       const dy = touches[0].clientY - touches[1].clientY;
-      return Math.sqrt(dx*dx + dy*dy);
+      return Math.sqrt(dx * dx + dy * dy);
     }
 
-    // Exportar
     document.getElementById("downloadBtn").addEventListener("click", () => {
-      if (!imgEl) return alert("Subí una imagen");
+      if (!baseImg) return alert("Subí primero una imagen.");
       const ratio = parseFloat(document.getElementById("ratioSelect").value);
       const width = 1080;
       const height = width / ratio;
-      canvas.width = width;
-      canvas.height = height;
+      finalCanvas.width = width;
+      finalCanvas.height = height;
 
-      // Dibujar imagen base
-      const img = new Image();
-      img.src = imgEl.src;
-      img.onload = () => {
-        const rect = preview.getBoundingClientRect();
-        const scaleFactor = (img.width / imgEl.width);
-        const drawScale = scale * (width / rect.width);
-        const dx = (offsetX - rect.width/2) * (width / rect.width);
-        const dy = (offsetY - rect.height/2) * (height / rect.height);
+      // Dibujar imagen
+      const iw = baseImg.width * scale * (width / editorCanvas.width);
+      const ih = baseImg.height * scale * (height / editorCanvas.height);
+      const dx = imgX * (width / editorCanvas.width) + width / 2 - iw / 2;
+      const dy = imgY * (height / editorCanvas.height) + height / 2 - ih / 2;
+      finalCtx.fillStyle = "#000";
+      finalCtx.fillRect(0, 0, width, height);
+      finalCtx.drawImage(baseImg, dx, dy, iw, ih);
 
-        ctx.clearRect(0,0,width,height);
-        ctx.save();
-        ctx.translate(width/2 + dx, height/2 + dy);
-        ctx.scale(drawScale, drawScale);
-        ctx.drawImage(img, -img.width/2, -img.height/2);
-        ctx.restore();
-
-        // Logo opcional
-        if (logoImg) {
-          const logoW = width * 0.25;
-          const logoH = logoW * (logoImg.height / logoImg.width);
-          ctx.drawImage(logoImg, width - logoW - 20, height - logoH - 20, logoW, logoH);
-        }
-
-        // Descargar
-        const link = document.createElement("a");
-        link.download = "export.png";
-        link.href = canvas.toDataURL("image/png");
-        link.click();
+      // Dibujar logo
+      if (logoImg) {
+        const logoW = width * 0.25;
+        const logoH = logoW * (logoImg.height / logoImg.width);
+        finalCtx.drawImage(logoImg, width - logoW - 20, height - logoH - 20, logoW, logoH);
       }
+
+      // Descargar
+      const link = document.createElement("a");
+      link.download = "export.png";
+      link.href = finalCanvas.toDataURL("image/png");
+      link.click();
     });
 
-    document.getElementById("ratioSelect").addEventListener("change", updatePreviewSize);
-    window.addEventListener("resize", updatePreviewSize);
-    updatePreviewSize();
+    document.getElementById("ratioSelect").addEventListener("change", updateEditorCanvas);
+    window.addEventListener("resize", updateEditorCanvas);
+    updateEditorCanvas();
   </script>
 </body>
 </html>
