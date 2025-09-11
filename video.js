@@ -12,6 +12,7 @@ let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
 // Estado video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT;
+let videoRatio = 1; // ancho / alto original
 
 // Gestos
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
@@ -44,11 +45,22 @@ document.getElementById('videoInput').addEventListener('change', e => {
   video.muted = false;
   video.play();
 
-  // Ajustar proporción inicial
-  videoW = WIDTH;
-  videoH = HEIGHT;
-  videoX = 0;
-  videoY = 0;
+  video.addEventListener('loadedmetadata', () => {
+    videoRatio = video.videoWidth / video.videoHeight;
+
+    // Ajustar tamaño inicial para cubrir canvas sin deformar
+    if (videoRatio > WIDTH / HEIGHT) { // horizontal
+      videoH = HEIGHT;
+      videoW = videoH * videoRatio;
+      videoX = (WIDTH - videoW) / 2;
+      videoY = 0;
+    } else { // vertical o cuadrado
+      videoW = WIDTH;
+      videoH = videoW / videoRatio;
+      videoX = 0;
+      videoY = (HEIGHT - videoH) / 2;
+    }
+  });
 });
 
 // -------------------- Carga logo --------------------
@@ -89,12 +101,12 @@ canvas.addEventListener('touchstart', e => {
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
     );
+
     const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
     const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
     const midCanvasX = (midX - rect.left) * (WIDTH / rect.width);
     const midCanvasY = (midY - rect.top) * (HEIGHT / rect.height);
 
-    // Si ambos dedos tocan logo, zoom logo; si no, zoom video
     if (logo && midCanvasX >= logoX && midCanvasX <= logoX + logoW && midCanvasY >= logoY && midCanvasY <= logoY + logoH) {
       dragTarget = "logo";
     } else {
@@ -127,10 +139,6 @@ canvas.addEventListener('touchmove', e => {
       e.touches[0].clientY - e.touches[1].clientY
     );
     const zoom = dist / lastDist;
-    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    const midCanvasX = (midX - rect.left) * (WIDTH / rect.width);
-    const midCanvasY = (midY - rect.top) * (HEIGHT / rect.height);
 
     if (dragTarget === "logo") {
       const cx = logoX + logoW / 2;
@@ -143,7 +151,7 @@ canvas.addEventListener('touchmove', e => {
       const cx = videoX + videoW / 2;
       const cy = videoY + videoH / 2;
       videoW *= zoom;
-      videoH *= zoom;
+      videoH = videoW / videoRatio; // mantiene proporción original
       videoX = cx - videoW / 2;
       videoY = cy - videoH / 2;
     }
