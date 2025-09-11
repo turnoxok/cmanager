@@ -10,6 +10,9 @@ let video=null, logo=null;
 // Estado logo
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
+// Estado video (para mover)
+let videoX = 0, videoY = 0;
+
 // Gestos
 let dragging=false, dragTarget=null, startX=0, startY=0, lastDist=null;
 
@@ -24,7 +27,8 @@ function drawEditor(){
     let drawW=WIDTH, drawH=HEIGHT;
     if(videoRatio > canvasRatio){ drawH=HEIGHT; drawW=HEIGHT*videoRatio; }
     else { drawW=WIDTH; drawH=WIDTH/videoRatio; }
-    ctx.drawImage(video,(WIDTH-drawW)/2,(HEIGHT-drawH)/2,drawW,drawH);
+
+    ctx.drawImage(video, videoX + (WIDTH-drawW)/2, videoY + (HEIGHT-drawH)/2, drawW, drawH);
   }
 
   if(logo) ctx.drawImage(logo,logoX,logoY,logoW,logoH);
@@ -68,15 +72,18 @@ canvas.addEventListener('touchstart', e=>{
   const y = (e.touches[0].clientY-rect.top)*(HEIGHT/rect.height);
 
   if(e.touches.length===1){
-    if(logo && x>=logoX && x<=logoX+logoW && y>=logoY && y<=logoY+logoH){ dragTarget="logo"; }
-    else { dragTarget=null; }
+    if(logo && x>=logoX && x<=logoX+logoW && y>=logoY && y<=logoY+logoH){
+      dragTarget="logo";
+    } else {
+      dragTarget="video"; // permitimos mover el video
+    }
     dragging=true; startX=x; startY=y;
   } else if(e.touches.length===2){
     lastDist=Math.hypot(
       e.touches[0].clientX-e.touches[1].clientX,
       e.touches[0].clientY-e.touches[1].clientY
     );
-    dragTarget="logo";
+    dragTarget="logo"; // zoom solo logo
   }
 });
 
@@ -86,9 +93,14 @@ canvas.addEventListener('touchmove', e=>{
   const x=(e.touches[0].clientX-rect.left)*(WIDTH/rect.width);
   const y=(e.touches[0].clientY-rect.top)*(HEIGHT/rect.height);
 
-  if(e.touches.length===1 && dragging && dragTarget==="logo"){
-    logoX += x - startX;
-    logoY += y - startY;
+  if(e.touches.length===1 && dragging){
+    const dx = x - startX;
+    const dy = y - startY;
+    if(dragTarget==="logo"){
+      logoX += dx; logoY += dy;
+    } else if(dragTarget==="video"){
+      videoX += dx; videoY += dy;
+    }
     startX = x; startY = y;
   } else if(e.touches.length===2 && lastDist && dragTarget==="logo"){
     const dist = Math.hypot(
@@ -127,15 +139,14 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
     const blob = new Blob(chunks, { type:"video/webm" });
     const url = URL.createObjectURL(blob);
     const a=document.createElement("a");
-    a.href=url;
-    a.download="video_final_con_logo.webm";
+    a.href = url;
+    a.download="video_final_editado.webm";
     a.click();
   };
 
   mediaRecorder.start();
   alert("Grabando todo el video completo... Presiona OK y espera que termine.");
 
-  // grabar toda la duración del video
   const duration = video.duration * 1000;
   setTimeout(()=>mediaRecorder.stop(), duration);
 });
