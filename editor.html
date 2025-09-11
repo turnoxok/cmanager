@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Editor con Logo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 0; padding: 20px; background: #f9f9f9; }
+    h1 { font-size: 1.4rem; margin-bottom: 1rem; }
+    input, button {
+      display: block; width: 100%; max-width: 320px;
+      margin: 10px auto; padding: 12px;
+      font-size: 1rem; border-radius: 8px; border: 1px solid #ccc;
+    }
+    button {
+      background: #0077ff; color: white; font-weight: bold; border: none;
+    }
+    button:active { background: #005fcc; }
+    canvas {
+      margin-top: 20px; max-width: 100%; height: auto;
+      border: 1px solid #ccc; border-radius: 8px; background: white;
+      touch-action: none; /* importante para multitouch */
+    }
+  </style>
+</head>
+<body>
+  <h1>Editor con Logo</h1>
+
+  <input type="file" id="imgInput" accept="image/*">
+  <input type="file" id="logoInput" accept="image/png">
+  <button id="downloadBtn">📥 Descargar Imagen</button>
+  <p style="font-size:0.9rem;color:#555;">👉 Arrastrá el logo con un dedo, hacé zoom con dos dedos</p>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    let baseImg = null;
+    let logoImg = null;
+
+    // Posición y tamaño del logo
+    let logoX = 50, logoY = 50;
+    let logoW = 100, logoH = 100;
+    let dragging = false;
+    let lastTouchDist = null;
+
+    function draw() {
+      if (!baseImg) return;
+      canvas.width = Math.min(window.innerWidth * 2, 800);
+      const scale = canvas.width / baseImg.width;
+      canvas.height = baseImg.height * scale;
+      ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
+
+      if (logoImg) {
+        ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+      }
+    }
+
+    document.getElementById("imgInput").addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        baseImg = new Image();
+        baseImg.onload = () => {
+          // reset canvas & logo
+          canvas.width = baseImg.width;
+          canvas.height = baseImg.height;
+          logoX = 20; logoY = 20;
+          draw();
+        };
+        baseImg.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById("logoInput").addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        logoImg = new Image();
+        logoImg.onload = () => {
+          logoW = canvas.width * 0.25;
+          logoH = logoW * (logoImg.height / logoImg.width);
+          logoX = canvas.width - logoW - 20;
+          logoY = canvas.height - logoH - 20;
+          draw();
+        };
+        logoImg.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // --- Gestos táctiles ---
+    canvas.addEventListener("touchstart", e => {
+      if (!logoImg) return;
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        const x = t.clientX - canvas.getBoundingClientRect().left;
+        const y = t.clientY - canvas.getBoundingClientRect().top;
+        // chequeo si toca el logo
+        if (x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) {
+          dragging = true;
+        }
+      } else if (e.touches.length === 2) {
+        lastTouchDist = getDist(e.touches);
+      }
+    });
+
+    canvas.addEventListener("touchmove", e => {
+      e.preventDefault();
+      if (!logoImg) return;
+
+      if (e.touches.length === 1 && dragging) {
+        const t = e.touches[0];
+        const x = t.clientX - canvas.getBoundingClientRect().left;
+        const y = t.clientY - canvas.getBoundingClientRect().top;
+        logoX = x - logoW / 2;
+        logoY = y - logoH / 2;
+        draw();
+      } else if (e.touches.length === 2) {
+        const dist = getDist(e.touches);
+        if (lastTouchDist) {
+          const scale = dist / lastTouchDist;
+          logoW *= scale;
+          logoH *= scale;
+          lastTouchDist = dist;
+          draw();
+        }
+      }
+    });
+
+    canvas.addEventListener("touchend", e => {
+      if (e.touches.length === 0) dragging = false;
+      if (e.touches.length < 2) lastTouchDist = null;
+    });
+
+    function getDist(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      if (!baseImg) return alert("Subí primero una imagen.");
+      const link = document.createElement("a");
+      link.download = "imagen_con_logo.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  </script>
+</body>
+</html>
