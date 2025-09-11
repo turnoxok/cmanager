@@ -39,10 +39,15 @@
     let baseImg = null;
     let logoImg = null;
 
-    // Posición y tamaño del logo
+    // Estado del logo
     let logoX = 50, logoY = 50;
     let logoW = 100, logoH = 100;
+
+    // Drag
     let dragging = false;
+    let dragOffsetX = 0, dragOffsetY = 0;
+
+    // Zoom
     let lastTouchDist = null;
 
     function draw() {
@@ -64,10 +69,6 @@
       reader.onload = ev => {
         baseImg = new Image();
         baseImg.onload = () => {
-          // reset canvas & logo
-          canvas.width = baseImg.width;
-          canvas.height = baseImg.height;
-          logoX = 20; logoY = 20;
           draw();
         };
         baseImg.src = ev.target.result;
@@ -96,13 +97,17 @@
     // --- Gestos táctiles ---
     canvas.addEventListener("touchstart", e => {
       if (!logoImg) return;
+
       if (e.touches.length === 1) {
         const t = e.touches[0];
-        const x = t.clientX - canvas.getBoundingClientRect().left;
-        const y = t.clientY - canvas.getBoundingClientRect().top;
-        // chequeo si toca el logo
+        const rect = canvas.getBoundingClientRect();
+        const x = (t.clientX - rect.left) * (canvas.width / rect.width);
+        const y = (t.clientY - rect.top) * (canvas.height / rect.height);
+
         if (x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) {
           dragging = true;
+          dragOffsetX = x - logoX;
+          dragOffsetY = y - logoY;
         }
       } else if (e.touches.length === 2) {
         lastTouchDist = getDist(e.touches);
@@ -115,10 +120,12 @@
 
       if (e.touches.length === 1 && dragging) {
         const t = e.touches[0];
-        const x = t.clientX - canvas.getBoundingClientRect().left;
-        const y = t.clientY - canvas.getBoundingClientRect().top;
-        logoX = x - logoW / 2;
-        logoY = y - logoH / 2;
+        const rect = canvas.getBoundingClientRect();
+        const x = (t.clientX - rect.left) * (canvas.width / rect.width);
+        const y = (t.clientY - rect.top) * (canvas.height / rect.height);
+
+        logoX = x - dragOffsetX;
+        logoY = y - dragOffsetY;
         draw();
       } else if (e.touches.length === 2) {
         const dist = getDist(e.touches);
