@@ -11,7 +11,7 @@ input, button { display:block; width:90%; max-width:320px; margin:10px auto; pad
 button { background:#0077ff; color:white; font-weight:bold; border:none; }
 button:active { background:#005fcc; }
 #editorCanvas { margin:20px auto; max-width:100%; border:2px dashed #666; touch-action:none; background:#000; }
-#exportedVideo { margin-top:20px; max-width:90%; border:1px solid #333; }
+#exportedVideo { margin-top:20px; max-width:90%; border:1px solid #333; display:none; }
 </style>
 </head>
 <body>
@@ -23,35 +23,35 @@ button:active { background:#005fcc; }
 
 <canvas id="editorCanvas"></canvas>
 <video id="exportedVideo" controls></video>
-<button id="saveBtn" style="display:none;">💾 Guardar / Compartir Video</button>
+<button id="shareBtn" style="display:none;">💾 Guardar / Compartir Video</button>
 
 <script>
-const editorCanvas = document.getElementById("editorCanvas");
-const ctx = editorCanvas.getContext("2d");
+const canvas = document.getElementById("editorCanvas");
+const ctx = canvas.getContext("2d");
 const exportedVideo = document.getElementById("exportedVideo");
-const saveBtn = document.getElementById("saveBtn");
+const shareBtn = document.getElementById("shareBtn");
 const WIDTH = 1080, HEIGHT = 1350;
-editorCanvas.width = WIDTH; editorCanvas.height = HEIGHT;
+canvas.width = WIDTH; canvas.height = HEIGHT;
 
-let video = null, logoImg = null;
-let logoX = WIDTH-270, logoY = HEIGHT-270, logoW=250, logoH=250;
+let video=null, logo=null;
+let logoX=WIDTH-270, logoY=HEIGHT-270, logoW=250, logoH=250;
 let dragging=false, dragTarget=null, startX=0, startY=0, lastDist=null;
 
 // Dibujo canvas
-function drawEditor(){
+function draw(){
   ctx.fillStyle="#000";
   ctx.fillRect(0,0,WIDTH,HEIGHT);
   if(video && video.readyState>=2){
-    let vRatio = video.videoWidth/video.videoHeight;
-    let cRatio = WIDTH/HEIGHT;
+    let vRatio=video.videoWidth/video.videoHeight;
+    let cRatio=WIDTH/HEIGHT;
     let drawW=WIDTH, drawH=HEIGHT;
     if(vRatio>cRatio){ drawH=HEIGHT; drawW=HEIGHT*vRatio; }
     else{ drawW=WIDTH; drawH=WIDTH/vRatio; }
     ctx.drawImage(video,(WIDTH-drawW)/2,(HEIGHT-drawH)/2,drawW,drawH);
   }
-  if(logoImg) ctx.drawImage(logoImg,logoX,logoY,logoW,logoH);
+  if(logo) ctx.drawImage(logo,logoX,logoY,logoW,logoH);
 }
-function loop(){ drawEditor(); requestAnimationFrame(loop); }
+function loop(){ draw(); requestAnimationFrame(loop); }
 
 // Cargar video
 document.getElementById("videoInput").addEventListener("change", e=>{
@@ -66,23 +66,20 @@ document.getElementById("logoInput").addEventListener("change", e=>{
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=ev=>{
-    logoImg=new Image();
-    logoImg.onload=()=>{
-      logoW=250; logoH=logoW*(logoImg.height/logoImg.width);
-      logoX=WIDTH-logoW-20; logoY=HEIGHT-logoH-20;
-    };
-    logoImg.src=ev.target.result;
+    logo=new Image();
+    logo.onload=()=>{ logoW=250; logoH=logoW*(logo.height/logo.width); logoX=WIDTH-logoW-20; logoY=HEIGHT-logoH-20; };
+    logo.src=ev.target.result;
   };
   reader.readAsDataURL(file);
 });
 
 // Gestos táctiles
-editorCanvas.addEventListener("touchstart", e=>{
-  const rect=editorCanvas.getBoundingClientRect();
+canvas.addEventListener("touchstart", e=>{
+  const rect=canvas.getBoundingClientRect();
   const x=(e.touches[0].clientX-rect.left)*(WIDTH/rect.width);
   const y=(e.touches[0].clientY-rect.top)*(HEIGHT/rect.height);
   if(e.touches.length===1){
-    if(logoImg && x>=logoX && x<=logoX+logoW && y>=logoY && y<=logoY+logoH) dragTarget="logo";
+    if(logo && x>=logoX && x<=logoX+logoW && y>=logoY && y<=logoY+logoH) dragTarget="logo";
     else dragTarget=null;
     dragging=true; startX=x; startY=y;
   } else if(e.touches.length===2){
@@ -94,9 +91,9 @@ editorCanvas.addEventListener("touchstart", e=>{
   }
 });
 
-editorCanvas.addEventListener("touchmove", e=>{
+canvas.addEventListener("touchmove", e=>{
   e.preventDefault();
-  const rect=editorCanvas.getBoundingClientRect();
+  const rect=canvas.getBoundingClientRect();
   const x=(e.touches[0].clientX-rect.left)*(WIDTH/rect.width);
   const y=(e.touches[0].clientY-rect.top)*(HEIGHT/rect.height);
   if(e.touches.length===1 && dragging && dragTarget==="logo"){
@@ -107,28 +104,24 @@ editorCanvas.addEventListener("touchmove", e=>{
     const dist=Math.hypot(p1.x-p2.x,p1.y-p2.y);
     const zoom=dist/lastDist;
     const cx=logoX+logoW/2, cy=logoY+logoH/2;
-    logoW*=zoom; logoH=logoW*(logoImg.height/logoImg.width);
+    logoW*=zoom; logoH=logoW*(logo.height/logo.width);
     logoX=cx-logoW/2; logoY=cy-logoH/2;
     lastDist=dist;
   }
 });
 
-editorCanvas.addEventListener("touchend", e=>{
-  if(e.touches.length===0) dragging=false;
-  if(e.touches.length<2) lastDist=null;
-});
+canvas.addEventListener("touchend", e=>{ if(e.touches.length===0) dragging=false; if(e.touches.length<2) lastDist=null; });
 
 loop();
 
-// Exportación WebM con audio
+// Exportar WebM con audio
 let recordedBlob = null;
-
 document.getElementById("startRecordBtn").addEventListener("click", ()=>{
   if(!video) return alert("Subí un video primero.");
 
-  const canvasStream = editorCanvas.captureStream(30);
+  const canvasStream = canvas.captureStream(30);
   const audioTracks = video.captureStream().getAudioTracks();
-  audioTracks.forEach(track=>canvasStream.addTrack(track));
+  audioTracks.forEach(t=>canvasStream.addTrack(t));
 
   const mediaRecorder = new MediaRecorder(canvasStream,{mimeType:"video/webm"});
   const chunks=[];
@@ -136,9 +129,10 @@ document.getElementById("startRecordBtn").addEventListener("click", ()=>{
   mediaRecorder.onstop = ()=>{
     recordedBlob = new Blob(chunks,{type:"video/webm"});
     const url = URL.createObjectURL(recordedBlob);
-    exportedVideo.src = url;
+    exportedVideo.src=url;
     exportedVideo.style.display="block";
-    saveBtn.style.display="block";
+    shareBtn.style.display="block";
+    alert("Video listo. Usa el botón 'Guardar / Compartir' para almacenarlo en tu dispositivo o enviarlo a otra app.");
   };
 
   mediaRecorder.start();
@@ -147,18 +141,14 @@ document.getElementById("startRecordBtn").addEventListener("click", ()=>{
 });
 
 // Guardar / Compartir
-saveBtn.addEventListener("click", async ()=>{
+shareBtn.addEventListener("click", async ()=>{
   if(!recordedBlob) return;
   const file = new File([recordedBlob], "video_con_logo.webm", {type:"video/webm"});
   if(navigator.canShare && navigator.canShare({ files:[file] })){
     try{ await navigator.share({ files:[file], title:"Video con Logo", text:"Aquí está el video"}); }
     catch(err){ alert("Compartir cancelado o no soportado."); }
   } else {
-    const url = URL.createObjectURL(file);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "video_con_logo.webm";
-    a.click();
+    alert("En este dispositivo, no se puede descargar automáticamente. Mantén presionado el video y selecciona 'Guardar video' para almacenarlo.");
   }
 });
 </script>
