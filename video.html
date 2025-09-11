@@ -107,13 +107,13 @@ canvas.addEventListener('touchmove', e=>{
 });
 canvas.addEventListener('touchend', e=>{ if(e.touches.length===0) dragging=false; if(e.touches.length<2) lastDist=null; });
 
-// Exportar MP4 usando ffmpeg.wasm
+// Exportar MP4 100% en navegador
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
   if(!video) return alert("Subí un video primero.");
   alert("Cargando ffmpeg... puede tardar unos segundos la primera vez.");
   if(!ffmpeg.isLoaded()) await ffmpeg.load();
 
-  // Grab canvas frames
+  // Capturar stream con audio
   const stream = canvas.captureStream(30);
   const audioTracks = video.captureStream().getAudioTracks();
   audioTracks.forEach(t=>stream.addTrack(t));
@@ -129,9 +129,9 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     const data = ffmpeg.FS('readFile','output.mp4');
     const mp4Blob = new Blob([data.buffer],{type:'video/mp4'});
     const url = URL.createObjectURL(mp4Blob);
-    resultVideo.src = url;
-    resultVideo.style.display='block';
+    resultVideo.src = url; resultVideo.style.display='block';
 
+    // Descarga directa
     const a=document.createElement('a');
     a.href=url; a.download='video_final.mp4'; a.click();
   };
