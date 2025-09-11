@@ -20,12 +20,16 @@ video { margin-top:20px; max-width:90%; border:1px solid #333; display:none; }
 <canvas id="canvas"></canvas>
 <video id="resultVideo" controls></video>
 
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.8/dist/ffmpeg.min.js"></script>
 <script>
+const { createFFmpeg, fetchFile } = FFmpeg;
+const ffmpeg = createFFmpeg({ log: true });
+
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const resultVideo = document.getElementById('resultVideo');
-const WIDTH = 1080, HEIGHT = 1350;
-canvas.width = WIDTH; canvas.height = HEIGHT;
+const WIDTH=1080, HEIGHT=1350;
+canvas.width=WIDTH; canvas.height=HEIGHT;
 
 let video=null, logo=null;
 let logoX=WIDTH-270, logoY=HEIGHT-270, logoW=250, logoH=250;
@@ -33,11 +37,9 @@ let dragging=false, dragTarget=null, startX=0, startY=0, lastDist=null;
 
 // Dibujo canvas
 function draw(){
-  ctx.fillStyle="#000";
-  ctx.fillRect(0,0,WIDTH,HEIGHT);
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,WIDTH,HEIGHT);
   if(video && video.readyState>=2){
-    let vRatio = video.videoWidth/video.videoHeight;
-    let cRatio = WIDTH/HEIGHT;
+    let vRatio=video.videoWidth/video.videoHeight, cRatio=WIDTH/HEIGHT;
     let drawW=WIDTH, drawH=HEIGHT;
     if(vRatio>cRatio){ drawH=HEIGHT; drawW=HEIGHT*vRatio; }
     else{ drawW=WIDTH; drawH=WIDTH/vRatio; }
@@ -105,10 +107,13 @@ canvas.addEventListener('touchmove', e=>{
 });
 canvas.addEventListener('touchend', e=>{ if(e.touches.length===0) dragging=false; if(e.touches.length<2) lastDist=null; });
 
-// Exportar WebM + enviar a servidor
+// Exportar MP4 usando ffmpeg.wasm
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
   if(!video) return alert("Subí un video primero.");
+  alert("Cargando ffmpeg... puede tardar unos segundos la primera vez.");
+  if(!ffmpeg.isLoaded()) await ffmpeg.load();
 
+  // Grab canvas frames
   const stream = canvas.captureStream(30);
   const audioTracks = video.captureStream().getAudioTracks();
   audioTracks.forEach(t=>stream.addTrack(t));
@@ -119,33 +124,22 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
 
   mediaRecorder.onstop = async ()=>{
     const webmBlob = new Blob(chunks,{type:'video/webm'});
-    const base64 = await blobToBase64(webmBlob);
-    
-    // Enviar a Netlify Function
-    const res = await fetch('/.netlify/functions/convert',{
-      method:'POST',
-      body: JSON.stringify({ video: base64 })
-    });
-    const data = await res.json();
-    const mp4Blob = base64ToBlob(data.mp4,'video/mp4');
+    ffmpeg.FS('writeFile','input.webm',await fetchFile(webmBlob));
+    await ffmpeg.run('-i','input.webm','-c:v','libx264','-c:a','aac','output.mp4');
+    const data = ffmpeg.FS('readFile','output.mp4');
+    const mp4Blob = new Blob([data.buffer],{type:'video/mp4'});
     const url = URL.createObjectURL(mp4Blob);
     resultVideo.src = url;
     resultVideo.style.display='block';
 
-    // Botón descarga
     const a=document.createElement('a');
-    a.href=url; a.download='video_final.mp4';
-    a.click();
+    a.href=url; a.download='video_final.mp4'; a.click();
   };
 
   mediaRecorder.start();
   alert("Grabando video completo... cierra este mensaje y espera la exportación.");
   video.onended = ()=>mediaRecorder.stop();
 });
-
-// Helpers
-function blobToBase64(blob){ return new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.readAsDataURL(blob); }); }
-function base64ToBlob(b64,type){ return new Blob([Uint8Array.from(atob(b64),c=>c.charCodeAt(0))],{type}); }
 </script>
 </body>
 </html>
