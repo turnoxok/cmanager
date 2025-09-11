@@ -12,7 +12,7 @@ let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
 // Estado video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT;
-let videoRatio = 1; // ancho / alto original
+let videoRatio = 1;
 
 // Gestos
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
@@ -47,13 +47,12 @@ document.getElementById('videoInput').addEventListener('change', e => {
 
   video.addEventListener('loadedmetadata', () => {
     videoRatio = video.videoWidth / video.videoHeight;
-
-    if (videoRatio > WIDTH / HEIGHT) { // horizontal
+    if (videoRatio > WIDTH / HEIGHT) {
       videoH = HEIGHT;
       videoW = videoH * videoRatio;
       videoX = (WIDTH - videoW) / 2;
       videoY = 0;
-    } else { // vertical o cuadrado
+    } else {
       videoW = WIDTH;
       videoH = videoW / videoRatio;
       videoX = 0;
@@ -164,7 +163,7 @@ canvas.addEventListener('touchend', e => {
   if (e.touches.length < 2) lastDist = null;
 });
 
-// -------------------- Export video completo con audio --------------------
+// -------------------- Export video completo con audio y preview --------------------
 document.getElementById('exportBtn').addEventListener('click', () => {
   if (!video) return alert("Subí un video primero.");
 
@@ -179,20 +178,45 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   mediaRecorder.onstop = () => {
     const blob = new Blob(chunks, { type: "video/webm" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "video_final_con_logo.webm";
-    a.click();
+
+    // Crear contenedor preview
+    let previewContainer = document.getElementById("previewContainer");
+    if (!previewContainer) {
+      previewContainer = document.createElement("div");
+      previewContainer.id = "previewContainer";
+      previewContainer.style.textAlign = "center";
+      previewContainer.style.marginTop = "20px";
+      document.body.appendChild(previewContainer);
+    }
+    previewContainer.innerHTML = "";
+
+    // Video preview
+    const previewVideo = document.createElement("video");
+    previewVideo.src = url;
+    previewVideo.controls = true;
+    previewVideo.width = 320;
+    previewContainer.appendChild(previewVideo);
+
+    // Botón descarga
+    const downloadBtn = document.createElement("button");
+    downloadBtn.innerText = "📥 Descargar Video";
+    downloadBtn.style.marginTop = "10px";
+    downloadBtn.onclick = () => {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "video_final_con_logo.webm";
+      a.click();
+    };
+    previewContainer.appendChild(downloadBtn);
   };
 
   mediaRecorder.start();
   alert("Grabando todo el video completo... Presiona OK y espera que termine.");
 
-  // Espera a que termine el video y luego dibuja último frame + corta audio
-  const duration = video.duration * 1000; // duración real en ms
+  const duration = video.duration * 1000;
 
   setTimeout(() => {
-    // Dibujar último frame con logo
+    // Último frame con logo del usuario
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
     if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
