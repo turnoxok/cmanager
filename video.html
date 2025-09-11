@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Editor Video + Logo con Backend</title>
+<title>Editor Video + Logo Mobile</title>
 <style>
 body { font-family:sans-serif; text-align:center; margin:0; padding:20px; background:#f9f9f9; }
 input, button { display:block; width:90%; max-width:320px; margin:10px auto; padding:12px; font-size:1rem; border-radius:8px; border:1px solid #ccc; }
@@ -12,102 +12,14 @@ canvas { margin:20px auto; max-width:100%; border:2px dashed #666; touch-action:
 </style>
 </head>
 <body>
-<h1>Editor Video + Logo con Backend</h1>
+
+<h1>Editor Video + Logo Mobile</h1>
 <input type="file" id="videoInput" accept="video/*">
 <input type="file" id="logoInput" accept="image/png">
 <button id="exportBtn">🎬 Exportar Video</button>
-<canvas id="canvas"></canvas>
 
-<script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const WIDTH = 1080, HEIGHT = 1350;
-canvas.width = WIDTH; canvas.height = HEIGHT;
+<canvas id="editorCanvas"></canvas>
 
-let video=null, logo=null;
-let logoX=WIDTH-270, logoY=HEIGHT-270, logoW=250, logoH=250;
-
-let dragging=false, dragTarget=null, startX=0, startY=0, lastDist=null;
-
-// Dibujo
-function draw(){
-  ctx.fillStyle="#000"; ctx.fillRect(0,0,WIDTH,HEIGHT);
-  if(video && video.readyState>=2){
-    let vRatio = video.videoWidth/video.videoHeight;
-    let cRatio = WIDTH/HEIGHT;
-    let drawW=WIDTH, drawH=HEIGHT;
-    if(vRatio>cRatio){ drawH=HEIGHT; drawW=HEIGHT*vRatio; } else { drawW=WIDTH; drawH=WIDTH/vRatio; }
-    ctx.drawImage(video,(WIDTH-drawW)/2,(HEIGHT-drawH)/2,drawW,drawH);
-  }
-  if(logo) ctx.drawImage(logo,logoX,logoY,logoW,logoH);
-}
-function loop(){ draw(); requestAnimationFrame(loop); }
-loop();
-
-// Cargar video
-document.getElementById('videoInput').addEventListener('change', e=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  video=document.createElement('video');
-  video.src = URL.createObjectURL(file);
-  video.loop=true; video.muted=false; video.play();
-});
-
-// Cargar logo
-document.getElementById('logoInput').addEventListener('change', e=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    logo=new Image();
-    logo.onload=()=>{ logoW=250; logoH=logoW*(logo.height/logo.width); logoX=WIDTH-logoW-20; logoY=HEIGHT-logoH-20; };
-    logo.src=ev.target.result;
-  };
-  reader.readAsDataURL(file);
-});
-
-// Gestos
-canvas.addEventListener('touchstart', e=>{
-  const rect=canvas.getBoundingClientRect();
-  const x=(e.touches[0].clientX-rect.left)*(WIDTH/rect.width);
-  const y=(e.touches[0].clientY-rect.top)*(HEIGHT/rect.height);
-  if(e.touches.length===1){ if(logo && x>=logoX && x<=logoX+logoW && y>=logoY && y<=logoY+logoH) dragTarget="logo"; else dragTarget=null; dragging=true; startX=x; startY=y; }
-  else if(e.touches.length===2){ lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); dragTarget="logo"; }
-});
-canvas.addEventListener('touchmove', e=>{
-  e.preventDefault();
-  const rect=canvas.getBoundingClientRect();
-  const x=(e.touches[0].clientX-rect.left)*(WIDTH/rect.width);
-  const y=(e.touches[0].clientY-rect.top)*(HEIGHT/rect.height);
-  if(e.touches.length===1 && dragging && dragTarget==="logo"){ logoX+=x-startX; logoY+=y-startY; startX=x; startY=y; }
-  else if(e.touches.length===2 && lastDist && dragTarget==="logo"){
-    const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-    const zoom=dist/lastDist; const cx=logoX+logoW/2; const cy=logoY+logoH/2;
-    logoW*=zoom; logoH=logoW*(logo.height/logo.width); logoX=cx-logoW/2; logoY=cy-logoH/2; lastDist=dist;
-  }
-});
-canvas.addEventListener('touchend', e=>{ if(e.touches.length===0) dragging=false; if(e.touches.length<2) lastDist=null; });
-
-// Exportar usando backend
-document.getElementById('exportBtn').addEventListener('click', async ()=>{
-  if(!video || !logo) return alert("Subí video y logo primero.");
-  const videoFile = document.getElementById('videoInput').files[0];
-  const logoFile = document.getElementById('logoInput').files[0];
-
-  const form = new FormData();
-  form.append('video', videoFile);
-  form.append('logo', logoFile);
-  form.append('x', Math.round(logoX));
-  form.append('y', Math.round(logoY));
-  form.append('width', Math.round(logoW));
-  form.append('height', Math.round(logoH));
-
-  const resp = await fetch('/procesar-video', { method:'POST', body:form });
-  const blob = await resp.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download='video_final.mp4'; a.click();
-});
-</script>
+<script src="video.js"></script>
 </body>
 </html>
