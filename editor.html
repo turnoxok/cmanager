@@ -42,19 +42,24 @@
 
   <script>
     const editorCanvas = document.getElementById("editorCanvas");
-    const editorCtx = editorCanvas.getContext("2d");
+    const ctx = editorCanvas.getContext("2d");
     const finalCanvas = document.getElementById("finalCanvas");
-    const finalCtx = finalCanvas.getContext("2d");
+    const fctx = finalCanvas.getContext("2d");
 
-    let baseImg = null;
-    let logoImg = null;
+    let baseImg = null, logoImg = null;
 
-    // Estado de la imagen
-    let imgX = 0, imgY = 0;
-    let scale = 1;
+    // Estado del fondo
+    let imgX = 0, imgY = 0, imgScale = 1;
+
+    // Estado del logo
+    let logoX = 0, logoY = 0, logoW = 0, logoH = 0;
+
+    // Interacciones
     let dragging = false;
-    let startX, startY, lastDist = null;
+    let dragTarget = null; // "bg" o "logo"
+    let startX = 0, startY = 0, lastDist = null;
 
+    // ---------------- RENDER ----------------
     function updateEditorCanvas() {
       const ratio = parseFloat(document.getElementById("ratioSelect").value);
       const width = Math.min(window.innerWidth - 40, 320);
@@ -64,22 +69,23 @@
     }
 
     function drawEditor() {
-      editorCtx.fillStyle = "#000";
-      editorCtx.fillRect(0, 0, editorCanvas.width, editorCanvas.height);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, editorCanvas.width, editorCanvas.height);
+
       if (baseImg) {
-        const iw = baseImg.width * scale;
-        const ih = baseImg.height * scale;
+        const iw = baseImg.width * imgScale;
+        const ih = baseImg.height * imgScale;
         const dx = imgX + editorCanvas.width / 2 - iw / 2;
         const dy = imgY + editorCanvas.height / 2 - ih / 2;
-        editorCtx.drawImage(baseImg, dx, dy, iw, ih);
+        ctx.drawImage(baseImg, dx, dy, iw, ih);
       }
+
       if (logoImg) {
-        const logoW = editorCanvas.width * 0.25;
-        const logoH = logoW * (logoImg.height / logoImg.width);
-        editorCtx.drawImage(logoImg, editorCanvas.width - logoW - 10, editorCanvas.height - logoH - 10, logoW, logoH);
+        ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
       }
     }
 
+    // ---------------- CARGA DE ARCHIVOS ----------------
     document.getElementById("imgInput").addEventListener("change", e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -87,7 +93,7 @@
       reader.onload = ev => {
         baseImg = new Image();
         baseImg.onload = () => {
-          scale = editorCanvas.width / baseImg.width;
+          imgScale = editorCanvas.width / baseImg.width;
           imgX = 0; imgY = 0;
           drawEditor();
         };
@@ -102,18 +108,34 @@
       const reader = new FileReader();
       reader.onload = ev => {
         logoImg = new Image();
-        logoImg.onload = drawEditor;
+        logoImg.onload = () => {
+          logoW = editorCanvas.width * 0.25;
+          logoH = logoW * (logoImg.height / logoImg.width);
+          logoX = editorCanvas.width - logoW - 10;
+          logoY = editorCanvas.height - logoH - 10;
+          drawEditor();
+        };
         logoImg.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     });
 
-    // Gestos táctiles
+    // ---------------- GESTOS ----------------
     editorCanvas.addEventListener("touchstart", e => {
+      const rect = editorCanvas.getBoundingClientRect();
+      const x = (e.touches[0].clientX - rect.left) * (editorCanvas.width / rect.width);
+      const y = (e.touches[0].clientY - rect.top) * (editorCanvas.height / rect.height);
+
       if (e.touches.length === 1) {
+        // Ver si tocó el logo
+        if (logoImg && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) {
+          dragTarget = "logo";
+        } else {
+          dragTarget = "bg";
+        }
         dragging = true;
-        startX = e.touches[0].clientX - imgX;
-        startY = e.touches[0].clientY - imgY;
+        startX = x;
+        startY = y;
       } else if (e.touches.length === 2) {
         lastDist = getDist(e.touches);
       }
@@ -121,15 +143,30 @@
 
     editorCanvas.addEventListener("touchmove", e => {
       e.preventDefault();
+      const rect = editorCanvas.getBoundingClientRect();
+      const x = (e.touches[0].clientX - rect.left) * (editorCanvas.width / rect.width);
+      const y = (e.touches[0].clientY - rect.top) * (editorCanvas.height / rect.height);
+
       if (e.touches.length === 1 && dragging) {
-        imgX = e.touches[0].clientX - startX;
-        imgY = e.touches[0].clientY - startY;
+        const dx = x - startX;
+        const dy = y - startY;
+
+        if (dragTarget === "bg") {
+          imgX += dx;
+          imgY += dy;
+        } else if (dragTarget === "logo") {
+          logoX += dx;
+          logoY += dy;
+        }
+
+        startX = x;
+        startY = y;
         drawEditor();
-      } else if (e.touches.length === 2) {
+      } else if (e.touches.length === 2 && dragTarget === "bg") {
         const dist = getDist(e.touches);
         if (lastDist) {
           const zoom = dist / lastDist;
-          scale *= zoom;
+          imgScale *= zoom;
           drawEditor();
         }
         lastDist = dist;
@@ -147,6 +184,7 @@
       return Math.sqrt(dx * dx + dy * dy);
     }
 
+    // ---------------- EXPORT ----------------
     document.getElementById("downloadBtn").addEventListener("click", () => {
       if (!baseImg) return alert("Subí primero una imagen.");
       const ratio = parseFloat(document.getElementById("ratioSelect").value);
@@ -155,23 +193,22 @@
       finalCanvas.width = width;
       finalCanvas.height = height;
 
-      // Dibujar imagen
-      const iw = baseImg.width * scale * (width / editorCanvas.width);
-      const ih = baseImg.height * scale * (height / editorCanvas.height);
+      // Fondo
+      const iw = baseImg.width * imgScale * (width / editorCanvas.width);
+      const ih = baseImg.height * imgScale * (height / editorCanvas.height);
       const dx = imgX * (width / editorCanvas.width) + width / 2 - iw / 2;
       const dy = imgY * (height / editorCanvas.height) + height / 2 - ih / 2;
-      finalCtx.fillStyle = "#000";
-      finalCtx.fillRect(0, 0, width, height);
-      finalCtx.drawImage(baseImg, dx, dy, iw, ih);
+      fctx.fillStyle = "#000";
+      fctx.fillRect(0, 0, width, height);
+      fctx.drawImage(baseImg, dx, dy, iw, ih);
 
-      // Dibujar logo
+      // Logo
       if (logoImg) {
-        const logoW = width * 0.25;
-        const logoH = logoW * (logoImg.height / logoImg.width);
-        finalCtx.drawImage(logoImg, width - logoW - 20, height - logoH - 20, logoW, logoH);
+        const scaleX = width / editorCanvas.width;
+        const scaleY = height / editorCanvas.height;
+        fctx.drawImage(logoImg, logoX * scaleX, logoY * scaleY, logoW * scaleX, logoH * scaleY);
       }
 
-      // Descargar
       const link = document.createElement("a");
       link.download = "export.png";
       link.href = finalCanvas.toDataURL("image/png");
