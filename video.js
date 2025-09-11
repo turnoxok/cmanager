@@ -41,7 +41,7 @@ document.getElementById('videoInput').addEventListener('change', e => {
   if (!file) return;
   video = document.createElement('video');
   video.src = URL.createObjectURL(file);
-  video.loop = true;
+  video.loop = false; // importante para usar onended
   video.muted = false;
   video.play();
 
@@ -189,6 +189,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   mediaRecorder.start();
   alert("Grabando todo el video completo... Presiona OK y espera que termine.");
 
-  const duration = video.duration * 1000;
+  // Detener grabación **300ms después** de que termine el video
+  const duration = video.duration * 1000 + 300;
   setTimeout(() => mediaRecorder.stop(), duration);
 });
