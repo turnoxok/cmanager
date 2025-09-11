@@ -191,23 +191,5 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   const duration = video.duration * 1000; // duración real
   const extraTime = 400; // ms último frame + fade
 
-  setTimeout(() => {
-    const start = performance.now();
-    const fadeInterval = () => {
-      const elapsed = performance.now() - start;
-      const progress = Math.min(elapsed / extraTime, 1);
-
-      // último frame con logo
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
-
-      // fade audio
-      video.volume = 1 - progress;
-
-      if (progress < 1) requestAnimationFrame(fadeInterval);
-      else mediaRecorder.stop();
-    };
-    requestAnimationFrame(fadeInterval);
-  }, duration);
+ }, duration); // <- importante: duration aquí
 });
