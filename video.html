@@ -11,6 +11,7 @@ input, button { display:block; width:90%; max-width:320px; margin:10px auto; pad
 button { background:#0077ff; color:white; font-weight:bold; border:none; }
 button:active { background:#005fcc; }
 #editorCanvas { margin:20px auto; max-width:100%; border:2px dashed #666; touch-action:none; background:#000; }
+#exportedVideo { margin-top:20px; max-width:90%; border:1px solid #333; }
 </style>
 </head>
 <body>
@@ -21,10 +22,14 @@ button:active { background:#005fcc; }
 <button id="startRecordBtn">🎬 Exportar Video</button>
 
 <canvas id="editorCanvas"></canvas>
+<video id="exportedVideo" controls></video>
+<button id="saveBtn" style="display:none;">💾 Guardar / Compartir Video</button>
 
 <script>
 const editorCanvas = document.getElementById("editorCanvas");
 const ctx = editorCanvas.getContext("2d");
+const exportedVideo = document.getElementById("exportedVideo");
+const saveBtn = document.getElementById("saveBtn");
 const WIDTH = 1080, HEIGHT = 1350;
 editorCanvas.width = WIDTH; editorCanvas.height = HEIGHT;
 
@@ -116,8 +121,11 @@ editorCanvas.addEventListener("touchend", e=>{
 loop();
 
 // Exportación WebM con audio
+let recordedBlob = null;
+
 document.getElementById("startRecordBtn").addEventListener("click", ()=>{
   if(!video) return alert("Subí un video primero.");
+
   const canvasStream = editorCanvas.captureStream(30);
   const audioTracks = video.captureStream().getAudioTracks();
   audioTracks.forEach(track=>canvasStream.addTrack(track));
@@ -126,17 +134,32 @@ document.getElementById("startRecordBtn").addEventListener("click", ()=>{
   const chunks=[];
   mediaRecorder.ondataavailable = e=>chunks.push(e.data);
   mediaRecorder.onstop = ()=>{
-    const blob = new Blob(chunks,{type:"video/webm"});
-    const url = URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url; a.download="video_movil_con_logo.webm";
-    a.click();
+    recordedBlob = new Blob(chunks,{type:"video/webm"});
+    const url = URL.createObjectURL(recordedBlob);
+    exportedVideo.src = url;
+    exportedVideo.style.display="block";
+    saveBtn.style.display="block";
   };
 
   mediaRecorder.start();
   alert("Grabando video completo... cierra este mensaje y espera a que termine la exportación.");
-
   video.onended = ()=>mediaRecorder.stop();
+});
+
+// Guardar / Compartir
+saveBtn.addEventListener("click", async ()=>{
+  if(!recordedBlob) return;
+  const file = new File([recordedBlob], "video_con_logo.webm", {type:"video/webm"});
+  if(navigator.canShare && navigator.canShare({ files:[file] })){
+    try{ await navigator.share({ files:[file], title:"Video con Logo", text:"Aquí está el video"}); }
+    catch(err){ alert("Compartir cancelado o no soportado."); }
+  } else {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "video_con_logo.webm";
+    a.click();
+  }
 });
 </script>
 </body>
