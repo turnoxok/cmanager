@@ -164,7 +164,7 @@ canvas.addEventListener('touchend', e => {
   if (e.touches.length < 2) lastDist = null;
 });
 
-// -------------------- Export video completo con audio y último frame --------------------
+// -------------------- Export video completo con audio --------------------
 document.getElementById('exportBtn').addEventListener('click', () => {
   if (!video) return alert("Subí un video primero.");
 
@@ -188,8 +188,20 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   mediaRecorder.start();
   alert("Grabando todo el video completo... Presiona OK y espera que termine.");
 
-  const duration = video.duration * 1000; // duración real
-  const extraTime = 400; // ms último frame + fade
+  // Espera a que termine el video y luego dibuja último frame + corta audio
+  const duration = video.duration * 1000; // duración real en ms
 
- }, duration); // <- importante: duration aquí
+  setTimeout(() => {
+    // Dibujar último frame con logo
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
+
+    // Cortar audio y detener grabación
+    video.pause();
+    video.currentTime = video.duration;
+    video.volume = 1;
+
+    mediaRecorder.stop();
+  }, duration);
 });
