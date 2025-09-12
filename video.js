@@ -39,9 +39,10 @@ loop();
 document.getElementById('videoInput').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
+
   video = document.createElement('video');
   video.src = URL.createObjectURL(file);
-  video.loop = true;
+  video.loop = false; // loop desactivado, manejamos duración real
   video.muted = false;
   video.play();
 
@@ -67,6 +68,7 @@ document.getElementById('videoInput').addEventListener('change', e => {
 document.getElementById('logoInput').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
+
   const reader = new FileReader();
   reader.onload = ev => {
     logo = new Image();
@@ -151,7 +153,7 @@ canvas.addEventListener('touchmove', e => {
       const cx = videoX + videoW / 2;
       const cy = videoY + videoH / 2;
       videoW *= zoom;
-      videoH = videoW / videoRatio; // mantiene proporción original
+      videoH = videoW / videoRatio; // mantiene proporción
       videoX = cx - videoW / 2;
       videoY = cy - videoH / 2;
     }
@@ -168,6 +170,10 @@ canvas.addEventListener('touchend', e => {
 // -------------------- Export video completo con audio --------------------
 document.getElementById('exportBtn').addEventListener('click', () => {
   if (!video) return alert("Subí un video primero.");
+
+  // Reiniciar video a inicio
+  video.currentTime = 0;
+  video.play();
 
   const canvasStream = canvas.captureStream(30); // 30 FPS
   const audioTracks = video.captureStream().getAudioTracks();
@@ -189,7 +195,18 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   mediaRecorder.start();
   alert("Grabando todo el video completo... Presiona OK y espera que termine.");
 
-  const duration = video.duration * 1000 + 500; // 200ms extra
-setTimeout(()=>mediaRecorder.stop(), duration);
-  
+  // Duración real + 300ms extra para último frame
+  const duration = video.duration * 1000 + 300;
+
+  setTimeout(() => {
+    // Dibujar último frame
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
+
+    // Pausar video
+    video.pause();
+
+    mediaRecorder.stop();
+  }, duration);
 });
