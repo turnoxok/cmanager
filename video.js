@@ -5,21 +5,15 @@ canvas.width = WIDTH;
 canvas.height = HEIGHT;
 
 let video = null, logo = null;
-
-// Video estado
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
-
-// Logo estado
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
-// Gestos
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
 // -------------------- Dibujo --------------------
 function drawEditor() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
   if (video && video.readyState >= 2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
   if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
 }
@@ -70,7 +64,7 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-// -------------------- Gestos (mouse + touch) --------------------
+// -------------------- Gestos --------------------
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
@@ -119,10 +113,7 @@ function moveDrag(e) {
   }
   startX = x; startY = y;
 }
-function endDrag(e) {
-  dragging = false;
-  lastDist = null;
-}
+function endDrag(e) { dragging = false; lastDist = null; }
 
 canvas.addEventListener("mousedown", startDrag);
 canvas.addEventListener("mousemove", moveDrag);
@@ -136,14 +127,14 @@ canvas.addEventListener("touchcancel", endDrag);
 
 // -------------------- Exportar --------------------
 document.getElementById("exportBtn").addEventListener("click", async () => {
-  if (!video) return alert("Subí un video primero.");
+  if (!video || !logo) return alert("Subí un video y un logo primero.");
 
   const videoFile = document.getElementById("videoInput").files[0];
-  const logoFile = document.getElementById("logoInput").files[0] || null;
+  const logoFile = document.getElementById("logoInput").files[0];
 
   const formData = new FormData();
   formData.append("video", videoFile);
-  if (logoFile) formData.append("logo", logoFile);
+  formData.append("logo", logoFile);
 
   formData.append("logoX", Math.round(logoX));
   formData.append("logoY", Math.round(logoY));
