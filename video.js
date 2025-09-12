@@ -5,17 +5,12 @@ canvas.width = WIDTH;
 canvas.height = HEIGHT;
 
 let video = null, logo = null;
-
-// Estado video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
-
-// Estado logo
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
-// Gestos
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
-// Dibujo
+// -------------------- Dibujo --------------------
 function drawEditor() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -25,14 +20,14 @@ function drawEditor() {
 function loop() { drawEditor(); requestAnimationFrame(loop); }
 loop();
 
-// Carga video
+// -------------------- Carga video --------------------
 document.getElementById("videoInput").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
   video = document.createElement("video");
   video.src = URL.createObjectURL(file);
   video.loop = true;
-  video.muted = true; // Para autoplay en móviles
+  video.muted = false;
   video.play();
 
   video.addEventListener("loadedmetadata", () => {
@@ -51,7 +46,7 @@ document.getElementById("videoInput").addEventListener("change", e => {
   });
 });
 
-// Carga logo
+// -------------------- Carga logo --------------------
 document.getElementById("logoInput").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -69,19 +64,19 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-// Gestos
+// -------------------- Gestos (PC y móvil) --------------------
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
-    return [(e.touches[0].clientX - rect.left)*(WIDTH/rect.width),
-            (e.touches[0].clientY - rect.top)*(HEIGHT/rect.height)];
+    return [(e.touches[0].clientX - rect.left) * (WIDTH / rect.width),
+            (e.touches[0].clientY - rect.top) * (HEIGHT / rect.height)];
   } else {
-    return [(e.clientX - rect.left)*(WIDTH/rect.width),
-            (e.clientY - rect.top)*(HEIGHT/rect.height)];
+    return [(e.clientX - rect.left) * (WIDTH / rect.width),
+            (e.clientY - rect.top) * (HEIGHT / rect.height)];
   }
 }
 function startDrag(e) {
-  let [x,y] = getPos(e);
+  let [x, y] = getPos(e);
   if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
   else dragTarget = "video";
   dragging = true;
@@ -93,29 +88,29 @@ function startDrag(e) {
 }
 function moveDrag(e) {
   if (!dragging) return;
-  let [x,y] = getPos(e);
+  let [x, y] = getPos(e);
   const dx = x - startX, dy = y - startY;
   if (e.touches && e.touches.length === 2 && lastDist) {
     const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
                             e.touches[0].clientY - e.touches[1].clientY);
     const zoom = dist / lastDist;
-    if (dragTarget==="logo") {
-      const cx = logoX+logoW/2, cy = logoY+logoH/2;
-      logoW *= zoom; logoH = logoW*(logo.height/logo.width);
-      logoX = cx - logoW/2; logoY = cy - logoH/2;
-    } else {
-      const cx = videoX+videoW/2, cy = videoY+videoH/2;
+    if (dragTarget === "logo") {
+      const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
+      logoW *= zoom; logoH = logoW * (logo.height / logo.width);
+      logoX = cx - logoW / 2; logoY = cy - logoH / 2;
+    } else if (dragTarget === "video") {
+      const cx = videoX + videoW / 2, cy = videoY + videoH / 2;
       videoW *= zoom; videoH = videoW / videoRatio;
-      videoX = cx - videoW/2; videoY = cy - videoH/2;
+      videoX = cx - videoW / 2; videoY = cy - videoH / 2;
     }
     lastDist = dist;
   } else {
-    if (dragTarget==="logo") { logoX+=dx; logoY+=dy; }
-    else { videoX+=dx; videoY+=dy; }
+    if (dragTarget === "logo") { logoX += dx; logoY += dy; }
+    else if (dragTarget === "video") { videoX += dx; videoY += dy; }
   }
-  startX=x; startY=y;
+  startX = x; startY = y;
 }
-function endDrag(e) { dragging=false; lastDist=null; }
+function endDrag(e) { dragging = false; lastDist = null; }
 
 canvas.addEventListener("mousedown", startDrag);
 canvas.addEventListener("mousemove", moveDrag);
@@ -126,24 +121,34 @@ canvas.addEventListener("touchmove", moveDrag);
 canvas.addEventListener("touchend", endDrag);
 canvas.addEventListener("touchcancel", endDrag);
 
-// Exportar con MediaRecorder
+// -------------------- Exportar a MP4 usando Railway --------------------
 document.getElementById("exportBtn").addEventListener("click", async () => {
-  if (!video) return alert("Subí un video primero.");
+  if (!video || !logo) return alert("Subí video y logo primero.");
 
-  const stream = canvas.captureStream(30); // 30 fps
-  const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
-  const chunks = [];
+  const videoFile = document.getElementById("videoInput").files[0];
+  const logoFile = document.getElementById("logoInput").files[0];
 
-  recorder.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
-  recorder.onstop = () => {
-    const blob = new Blob(chunks, { type: 'video/webm' });
+  const formData = new FormData();
+  formData.append("video", videoFile);
+  formData.append("logo", logoFile);
+  formData.append("logoX", Math.round(logoX));
+  formData.append("logoY", Math.round(logoY));
+  formData.append("logoWidth", Math.round(logoW));
+  formData.append("logoHeight", Math.round(logoH));
+
+  try {
+    const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
+      method: "POST",
+      body: formData
+    });
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "video_final.webm"; // navegador: webm
+    a.download = "video_final.mp4";
     a.click();
-  };
-
-  recorder.start();
-  video.play();
-  setTimeout(()=>recorder.stop(), video.duration*1000 || 5000); // duración real o 5s fallback
+  } catch (err) {
+    console.error("Error al exportar:", err);
+    alert("Error al exportar el video. Revisa la consola.");
+  }
 });
