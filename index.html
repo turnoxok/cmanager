@@ -1,82 +1,32 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
   <title>Editor de Video con Logo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    h1 {
-      margin: 20px 0;
-      font-size: 1.5rem;
-    }
-    #editorContainer {
-      position: relative;
-      width: 100%;
-      max-width: 540px;
-      background: #000;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 20px;
-    }
-    canvas {
-      width: 100%;
-      height: auto;
-      display: block;
-      touch-action: none;
-      user-select: none;
-    }
-    .controls {
-      display: flex;
-      flex-direction: column;
-      width: 90%;
-      max-width: 540px;
-      gap: 10px;
-      margin-bottom: 40px;
-    }
-    input[type="file"], button {
-      padding: 12px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-    }
-    button {
-      background: #28a745;
-      color: #fff;
-      font-size: 1rem;
-      transition: background 0.2s;
-    }
-    button:hover { background: #218838; }
-    @media (min-width: 600px) {
-      h1 { font-size: 2rem; }
-      button { font-size: 1.2rem; }
-    }
+    body { margin:0; font-family:Arial, sans-serif; background:#111; color:#fff; display:flex; flex-direction:column; align-items:center; }
+    h1 { margin:18px 0; }
+    #editorContainer { width:100%; max-width:540px; background:#000; border-radius:12px; overflow:hidden; }
+    canvas { width:100%; height:auto; display:block; touch-action:none; user-select:none; }
+    .controls { width:90%; max-width:540px; display:flex; flex-direction:column; gap:10px; margin:18px 0 40px; }
+    input[type=file], button { padding:12px; border-radius:8px; border:none; cursor:pointer; }
+    button { background:#28a745; color:#fff; }
+    button:active { transform:translateY(1px); }
   </style>
 </head>
 <body>
   <h1>Editor de Video con Logo</h1>
-  <div id="editorContainer">
-    <canvas id="editorCanvas"></canvas>
-  </div>
+  <div id="editorContainer"><canvas id="editorCanvas"></canvas></div>
 
   <div class="controls">
-    <label>
-      Selecciona Video
-      <input type="file" id="videoInput" accept="video/*">
+    <label>Selecciona Video
+      <input id="videoInput" type="file" accept="video/*">
     </label>
-    <label>
-      Selecciona Logo
-      <input type="file" id="logoInput" accept="image/*">
+    <label>Selecciona Logo
+      <input id="logoInput" type="file" accept="image/*">
     </label>
-    <button id="exportBtn">Exportar Video</button>
+    <button id="exportBtn">Exportar Video (MP4 1080×1350)</button>
   </div>
 
   <script src="video.js"></script>
