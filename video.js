@@ -6,19 +6,20 @@ canvas.height = HEIGHT;
 
 let video = null, logo = null;
 
-// Estados de video
+// Video estado
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
 
-// Estados de logo
+// Logo estado
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
-// Arrastre
+// Gestos
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
 // -------------------- Dibujo --------------------
 function drawEditor() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
   if (video && video.readyState >= 2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
   if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
 }
@@ -32,7 +33,7 @@ document.getElementById("videoInput").addEventListener("change", e => {
   video = document.createElement("video");
   video.src = URL.createObjectURL(file);
   video.loop = true;
-  video.muted = false;
+  video.muted = true;
   video.play();
 
   video.addEventListener("loadedmetadata", () => {
@@ -73,15 +74,11 @@ document.getElementById("logoInput").addEventListener("change", e => {
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
-    return [
-      (e.touches[0].clientX - rect.left) * (WIDTH / rect.width),
-      (e.touches[0].clientY - rect.top) * (HEIGHT / rect.height)
-    ];
+    return [(e.touches[0].clientX - rect.left) * (WIDTH / rect.width),
+            (e.touches[0].clientY - rect.top) * (HEIGHT / rect.height)];
   } else {
-    return [
-      (e.clientX - rect.left) * (WIDTH / rect.width),
-      (e.clientY - rect.top) * (HEIGHT / rect.height)
-    ];
+    return [(e.clientX - rect.left) * (WIDTH / rect.width),
+            (e.clientY - rect.top) * (HEIGHT / rect.height)];
   }
 }
 
@@ -93,23 +90,18 @@ function startDrag(e) {
   startX = x; startY = y;
 
   if (e.touches && e.touches.length === 2) {
-    lastDist = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
+    lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                          e.touches[0].clientY - e.touches[1].clientY);
   }
 }
-
 function moveDrag(e) {
   if (!dragging) return;
   let [x, y] = getPos(e);
   const dx = x - startX, dy = y - startY;
 
   if (e.touches && e.touches.length === 2 && lastDist) {
-    const dist = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
+    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                            e.touches[0].clientY - e.touches[1].clientY);
     const zoom = dist / lastDist;
     if (dragTarget === "logo") {
       const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
@@ -127,7 +119,6 @@ function moveDrag(e) {
   }
   startX = x; startY = y;
 }
-
 function endDrag(e) {
   dragging = false;
   lastDist = null;
@@ -154,10 +145,15 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   formData.append("video", videoFile);
   formData.append("logo", logoFile);
 
+  // Enviamos posición y tamaño
+  formData.append("videoX", Math.round(videoX));
+  formData.append("videoY", Math.round(videoY));
+  formData.append("videoW", Math.round(videoW));
+  formData.append("videoH", Math.round(videoH));
   formData.append("logoX", Math.round(logoX));
   formData.append("logoY", Math.round(logoY));
-  formData.append("logoWidth", Math.round(logoW));
-  formData.append("logoHeight", Math.round(logoH));
+  formData.append("logoW", Math.round(logoW));
+  formData.append("logoH", Math.round(logoH));
 
   try {
     const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
@@ -177,6 +173,3 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     alert("Error al exportar: " + err.message);
   }
 });
-
-
-
