@@ -5,9 +5,14 @@ canvas.width = WIDTH;
 canvas.height = HEIGHT;
 
 let video = null, logo = null;
+
+// Video estado
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
+
+// Logo estado
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
+// Gestos
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
 // -------------------- Dibujo --------------------
@@ -65,58 +70,71 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-// -------------------- Gestos (móvil/touch) --------------------
-canvas.addEventListener("touchstart", e => {
+// -------------------- Gestos (mouse + touch) --------------------
+function getPos(e) {
   const rect = canvas.getBoundingClientRect();
-  const x = (e.touches[0].clientX - rect.left) * (WIDTH / rect.width);
-  const y = (e.touches[0].clientY - rect.top) * (HEIGHT / rect.height);
-
-  if (e.touches.length === 1) {
-    if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
-    else dragTarget = "video";
-    dragging = true;
-    startX = x; startY = y;
-  } else if (e.touches.length === 2) {
-    lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    const midX = (e.touches[0].clientX + e.touches[1].clientX)/2;
-    const midY = (e.touches[0].clientY + e.touches[1].clientY)/2;
-    const midCanvasX = (midX - rect.left)*(WIDTH/rect.width);
-    const midCanvasY = (midY - rect.top)*(HEIGHT/rect.height);
-    dragTarget = (logo && midCanvasX>=logoX && midCanvasX<=logoX+logoW && midCanvasY>=logoY && midCanvasY<=logoY+logoH) ? "logo" : "video";
+  if (e.touches) {
+    return [(e.touches[0].clientX - rect.left) * (WIDTH / rect.width),
+            (e.touches[0].clientY - rect.top) * (HEIGHT / rect.height)];
+  } else {
+    return [(e.clientX - rect.left) * (WIDTH / rect.width),
+            (e.clientY - rect.top) * (HEIGHT / rect.height)];
   }
-});
-canvas.addEventListener("touchmove", e => {
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  const x = (e.touches[0].clientX - rect.left)*(WIDTH/rect.width);
-  const y = (e.touches[0].clientY - rect.top)*(HEIGHT/rect.height);
+}
 
-  if (e.touches.length === 1 && dragging) {
-    const dx = x - startX, dy = y - startY;
-    if (dragTarget === "logo") { logoX += dx; logoY += dy; }
-    else if (dragTarget === "video") { videoX += dx; videoY += dy; }
-    startX = x; startY = y;
-  } else if (e.touches.length === 2 && lastDist) {
-    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+function startDrag(e) {
+  let [x, y] = getPos(e);
+  if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
+  else dragTarget = "video";
+  dragging = true;
+  startX = x; startY = y;
+
+  if (e.touches && e.touches.length === 2) {
+    lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                          e.touches[0].clientY - e.touches[1].clientY);
+  }
+}
+function moveDrag(e) {
+  if (!dragging) return;
+  let [x, y] = getPos(e);
+  const dx = x - startX, dy = y - startY;
+
+  if (e.touches && e.touches.length === 2 && lastDist) {
+    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                            e.touches[0].clientY - e.touches[1].clientY);
     const zoom = dist / lastDist;
-    if (dragTarget === "logo") { 
-      const cx = logoX + logoW/2, cy = logoY + logoH/2;
-      logoW *= zoom; logoH = logoW * (logo.height/logo.width);
-      logoX = cx - logoW/2; logoY = cy - logoH/2;
-    } else if (dragTarget === "video") { 
-      const cx = videoX + videoW/2, cy = videoY + videoH/2;
+    if (dragTarget === "logo") {
+      const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
+      logoW *= zoom; logoH = logoW * (logo.height / logo.width);
+      logoX = cx - logoW / 2; logoY = cy - logoH / 2;
+    } else if (dragTarget === "video") {
+      const cx = videoX + videoW / 2, cy = videoY + videoH / 2;
       videoW *= zoom; videoH = videoW / videoRatio;
-      videoX = cx - videoW/2; videoY = cy - videoH/2;
+      videoX = cx - videoW / 2; videoY = cy - videoH / 2;
     }
     lastDist = dist;
+  } else {
+    if (dragTarget === "logo") { logoX += dx; logoY += dy; }
+    else if (dragTarget === "video") { videoX += dx; videoY += dy; }
   }
-});
-canvas.addEventListener("touchend", e => {
-  if(e.touches.length===0) dragging=false;
-  if(e.touches.length<2) lastDist=null;
-});
+  startX = x; startY = y;
+}
+function endDrag(e) {
+  dragging = false;
+  lastDist = null;
+}
 
-// -------------------- Exportar (envía video + logo al backend) --------------------
+canvas.addEventListener("mousedown", startDrag);
+canvas.addEventListener("mousemove", moveDrag);
+canvas.addEventListener("mouseup", endDrag);
+canvas.addEventListener("mouseleave", endDrag);
+
+canvas.addEventListener("touchstart", startDrag);
+canvas.addEventListener("touchmove", moveDrag);
+canvas.addEventListener("touchend", endDrag);
+canvas.addEventListener("touchcancel", endDrag);
+
+// -------------------- Exportar --------------------
 document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video) return alert("Subí un video primero.");
 
