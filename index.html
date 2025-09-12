@@ -5,15 +5,15 @@
 <title>Editor de Video - CManager Pro</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body { margin:0; font-family:Arial,sans-serif; background:#111; color:#fff; display:flex; flex-direction:column; align-items:center; }
+body { margin:0; font-family: Arial,sans-serif; background:#111; color:#fff; display:flex; flex-direction:column; align-items:center; }
 h1 { margin:20px 0 10px; font-size:1.5rem; }
 #editorContainer { position:relative; width:100%; max-width:540px; background:#000; overflow:hidden; border-radius:12px; margin-bottom:20px; }
 canvas { width:100%; height:auto; display:block; }
 .controls { display:flex; flex-direction:column; width:90%; max-width:540px; gap:10px; margin-bottom:40px; }
-input[type="file"] { padding:10px; border-radius:8px; border:none; cursor:pointer; }
-button { padding:12px; border:none; border-radius:8px; background:#28a745; color:#fff; font-size:1rem; cursor:pointer; transition:background 0.2s; }
+input[type=file] { padding:10px; border-radius:8px; border:none; cursor:pointer; }
+button { padding:12px; border:none; border-radius:8px; background:#28a745; color:#fff; font-size:1rem; cursor:pointer; transition: background 0.2s; }
 button:hover { background:#218838; }
-@media(min-width:600px){ h1{font-size:2rem} button{font-size:1.2rem} }
+@media (min-width:600px) { h1{font-size:2rem;} button{font-size:1.2rem;} }
 </style>
 </head>
 <body>
@@ -22,8 +22,8 @@ button:hover { background:#218838; }
   <canvas id="editorCanvas"></canvas>
 </div>
 <div class="controls">
-  <label>Selecciona Video <input type="file" id="videoInput" accept="video/*"></label>
-  <label>Selecciona Logo <input type="file" id="logoInput" accept="image/*"></label>
+  <label>Selecciona Video<input type="file" id="videoInput" accept="video/*"></label>
+  <label>Selecciona Logo<input type="file" id="logoInput" accept="image/*"></label>
   <button id="exportBtn">Exportar Video</button>
 </div>
 <script src="video.js"></script>
