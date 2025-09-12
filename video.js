@@ -30,41 +30,21 @@ document.getElementById("videoInput").addEventListener("change", e => {
 });
 
 
-document.getElementById("videoInput").addEventListener("change", e => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  video = document.createElement("video");
-  video.src = URL.createObjectURL(file);
-  video.loop = true;
-  video.muted = true; // dejamos inicializado en mute para autoplay
-  video.play();
-
-  // Intentar reproducir con sonido tras interacción del usuario
-  const enableAudio = () => {
-    video.muted = false;
-    video.play().catch(() => console.log("Interacción requerida para audio"));
-    document.removeEventListener("click", enableAudio);
-    document.removeEventListener("touchstart", enableAudio);
+document.getElementById("logoInput").addEventListener("change", e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    logo = new Image();
+    logo.onload = () => {
+      logoW = 100; 
+      logoH = logoW * (logo.height / logo.width); 
+      logoX = videoW - logoW - 10; 
+      logoY = videoH - logoH - 10;
+    };
+    logo.src = ev.target.result;
   };
-  document.addEventListener("click", enableAudio);
-  document.addEventListener("touchstart", enableAudio);
-
-  video.addEventListener("loadedmetadata", () => {
-    videoRatio = video.videoWidth / video.videoHeight;
-    videoW = video.videoWidth;
-    videoH = video.videoHeight;
-    canvas.width = videoW;
-    canvas.height = videoH;
-    videoX = 0;
-    videoY = 0;
-    logoX = videoW - 150;
-    logoY = videoH - 150;
-    logoW = 100;
-    logoH = 100;
-  });
+  reader.readAsDataURL(file);
 });
-
 
 function getPos(e){
   const rect = canvas.getBoundingClientRect();
