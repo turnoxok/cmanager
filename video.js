@@ -9,6 +9,7 @@ let video = null, logo = null;
 
 // Estado logo
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
+
 // Estado video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT;
 let videoRatio = 1;
@@ -20,7 +21,10 @@ let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null
 function drawEditor() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  if (video && video.readyState >= 2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
+
+  if (video && video.readyState >= 2) {
+    ctx.drawImage(video, videoX, videoY, videoW, videoH);
+  }
   if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
 }
 function loop() { drawEditor(); requestAnimationFrame(loop); }
@@ -75,18 +79,21 @@ canvas.addEventListener('touchstart', e => {
   const rect = canvas.getBoundingClientRect();
   const x = (e.touches[0].clientX - rect.left) * (WIDTH / rect.width);
   const y = (e.touches[0].clientY - rect.top) * (HEIGHT / rect.height);
+
   if (e.touches.length === 1) {
     if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
     else dragTarget = "video";
     dragging = true;
-    startX = x; startY = y;
+    startX = x;
+    startY = y;
   } else if (e.touches.length === 2) {
     lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
     const midX = (e.touches[0].clientX + e.touches[1].clientX)/2;
     const midY = (e.touches[0].clientY + e.touches[1].clientY)/2;
     const midCanvasX = (midX - rect.left)*(WIDTH/rect.width);
     const midCanvasY = (midY - rect.top)*(HEIGHT/rect.height);
-    dragTarget = (logo && midCanvasX >= logoX && midCanvasX <= logoX + logoW && midCanvasY >= logoY && midCanvasY <= logoY + logoH) ? "logo" : "video";
+    if (logo && midCanvasX>=logoX && midCanvasX<=logoX+logoW && midCanvasY>=logoY && midCanvasY<=logoY+logoH) dragTarget="logo";
+    else dragTarget="video";
   }
 });
 
@@ -95,6 +102,7 @@ canvas.addEventListener('touchmove', e => {
   const rect = canvas.getBoundingClientRect();
   const x = (e.touches[0].clientX - rect.left)*(WIDTH/rect.width);
   const y = (e.touches[0].clientY - rect.top)*(HEIGHT/rect.height);
+
   if (e.touches.length === 1 && dragging) {
     const dx = x-startX, dy=y-startY;
     if (dragTarget==="logo") { logoX+=dx; logoY+=dy; }
@@ -103,45 +111,60 @@ canvas.addEventListener('touchmove', e => {
   } else if (e.touches.length === 2 && lastDist) {
     const dist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
     const zoom = dist/lastDist;
-    if (dragTarget==="logo") { const cx=logoX+logoW/2, cy=logoY+logoH/2; logoW*=zoom; logoH=logoW*(logo.height/logo.width); logoX=cx-logoW/2; logoY=cy-logoH/2; }
-    else if (dragTarget==="video") { const cx=videoX+videoW/2, cy=videoY+videoH/2; videoW*=zoom; videoH=videoW/videoRatio; videoX=cx-videoW/2; videoY=cy-videoH/2; }
+    if (dragTarget==="logo") {
+      const cx=logoX+logoW/2, cy=logoY+logoH/2;
+      logoW*=zoom; logoH=logoW*(logo.height/logo.width);
+      logoX=cx-logoW/2; logoY=cy-logoH/2;
+    } else if (dragTarget==="video") {
+      const cx=videoX+videoW/2, cy=videoY+videoH/2;
+      videoW*=zoom; videoH=videoW/videoRatio;
+      videoX=cx-videoW/2; videoY=cy-videoH/2;
+    }
     lastDist=dist;
   }
 });
 
-canvas.addEventListener('touchend', e => { if(e.touches.length===0) dragging=false; if(e.touches.length<2) lastDist=null; });
+canvas.addEventListener('touchend', e => {
+  if(e.touches.length===0) dragging=false;
+  if(e.touches.length<2) lastDist=null;
+});
 
-// -------------------- Exportar a Railway --------------------
-document.getElementById('exportBtn').addEventListener('click', async () => {
+// -------------------- Enviar a servidor --------------------
+document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video) return alert("Subí un video primero.");
-  const fileInput = document.getElementById('videoInput');
+
+  const videoFile = document.getElementById("videoInput").files[0];
+  const logoFile = document.getElementById("logoInput").files[0];
+
+  if (!videoFile) return alert("Subí un video primero.");
+
   const formData = new FormData();
-  formData.append("video", fileInput.files[0]);
-  formData.append("videoX", videoX);
-  formData.append("videoY", videoY);
-  formData.append("videoW", videoW);
-  formData.append("videoH", videoH);
-  if (logo) {
-    formData.append("logoX", logoX);
-    formData.append("logoY", logoY);
-    formData.append("logoW", logoW);
-    formData.append("logoH", logoH);
-    // Para enviar logo como archivo
-    const canvasLogo = document.createElement("canvas");
-    canvasLogo.width = logoW;
-    canvasLogo.height = logoH;
-    const ctxLogo = canvasLogo.getContext("2d");
-    ctxLogo.drawImage(logo, 0, 0, logoW, logoH);
-    canvasLogo.toBlob(blob => formData.append("logo", blob, "logo.png"), "image/png");
+  formData.append("video", videoFile);
+  if (logoFile) formData.append("logo", logoFile);
+
+  // Coordenadas y tamaño del logo
+  formData.append("logoX", Math.round(logoX));
+  formData.append("logoY", Math.round(logoY));
+  formData.append("logoWidth", Math.round(logoW));
+  formData.append("logoHeight", Math.round(logoH));
+
+  try {
+    const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
+      method: "POST",
+      body: formData
+    });
+
+    if (!res.ok) return alert("Error al convertir el video.");
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "video_final.mp4";
+    a.click();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error en la comunicación con el servidor.");
   }
-
-  const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", { method: "POST", body: formData });
-  if (!res.ok) return alert("Error al convertir el video");
-
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "video_final.mp4";
-  a.click();
 });
