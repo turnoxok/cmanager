@@ -12,7 +12,7 @@ let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
 // Estado video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT;
-let videoRatio = 1;
+let videoRatio = 1; // ancho / alto original
 
 // Gestos
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
@@ -47,12 +47,14 @@ document.getElementById('videoInput').addEventListener('change', e => {
 
   video.addEventListener('loadedmetadata', () => {
     videoRatio = video.videoWidth / video.videoHeight;
-    if (videoRatio > WIDTH / HEIGHT) {
+
+    // Ajustar tamaño inicial para cubrir canvas sin deformar
+    if (videoRatio > WIDTH / HEIGHT) { // horizontal
       videoH = HEIGHT;
       videoW = videoH * videoRatio;
       videoX = (WIDTH - videoW) / 2;
       videoY = 0;
-    } else {
+    } else { // vertical o cuadrado
       videoW = WIDTH;
       videoH = videoW / videoRatio;
       videoX = 0;
@@ -149,7 +151,7 @@ canvas.addEventListener('touchmove', e => {
       const cx = videoX + videoW / 2;
       const cy = videoY + videoH / 2;
       videoW *= zoom;
-      videoH = videoW / videoRatio;
+      videoH = videoW / videoRatio; // mantiene proporción original
       videoX = cx - videoW / 2;
       videoY = cy - videoH / 2;
     }
@@ -163,11 +165,11 @@ canvas.addEventListener('touchend', e => {
   if (e.touches.length < 2) lastDist = null;
 });
 
-// -------------------- Export video completo con audio y preview --------------------
+// -------------------- Export video completo con audio --------------------
 document.getElementById('exportBtn').addEventListener('click', () => {
   if (!video) return alert("Subí un video primero.");
 
-  const canvasStream = canvas.captureStream(30);
+  const canvasStream = canvas.captureStream(30); // 30 FPS
   const audioTracks = video.captureStream().getAudioTracks();
   audioTracks.forEach(track => canvasStream.addTrack(track));
 
@@ -178,54 +180,16 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   mediaRecorder.onstop = () => {
     const blob = new Blob(chunks, { type: "video/webm" });
     const url = URL.createObjectURL(blob);
-
-    // Crear contenedor preview
-    let previewContainer = document.getElementById("previewContainer");
-    if (!previewContainer) {
-      previewContainer = document.createElement("div");
-      previewContainer.id = "previewContainer";
-      previewContainer.style.textAlign = "center";
-      previewContainer.style.marginTop = "20px";
-      document.body.appendChild(previewContainer);
-    }
-    previewContainer.innerHTML = "";
-
-    // Video preview
-    const previewVideo = document.createElement("video");
-    previewVideo.src = url;
-    previewVideo.controls = true;
-    previewVideo.width = 320;
-    previewContainer.appendChild(previewVideo);
-
-    // Botón descarga
-    const downloadBtn = document.createElement("button");
-    downloadBtn.innerText = "📥 Descargar Video";
-    downloadBtn.style.marginTop = "10px";
-    downloadBtn.onclick = () => {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "video_final_con_logo.webm";
-      a.click();
-    };
-    previewContainer.appendChild(downloadBtn);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "video_final_con_logo.webm";
+    a.click();
   };
 
   mediaRecorder.start();
   alert("Grabando todo el video completo... Presiona OK y espera que termine.");
 
-  const duration = video.duration * 1000;
-
-  setTimeout(() => {
-    // Último frame con logo del usuario
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
-
-    // Cortar audio y detener grabación
-    video.pause();
-    video.currentTime = video.duration;
-    video.volume = 1;
-
-    mediaRecorder.stop();
-  }, duration);
+  const duration = video.duration * 1000 + 500; // 200ms extra
+setTimeout(()=>mediaRecorder.stop(), duration);
+  
 });
