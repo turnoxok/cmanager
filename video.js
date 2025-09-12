@@ -1,84 +1,3 @@
-const canvas = document.getElementById("editorCanvas");
-const ctx = canvas.getContext("2d");
-const WIDTH = 1080, HEIGHT = 1350;
-canvas.width = WIDTH;
-canvas.height = HEIGHT;
-
-let video = null, logo = null;
-
-// Estados de video
-let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
-
-// Estados de logo
-let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
-
-// Arrastre
-let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
-
-// -------------------- Dibujo --------------------
-function drawEditor() {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  if (video && video.readyState >= 2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
-  if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
-}
-function loop() { drawEditor(); requestAnimationFrame(loop); }
-loop();
-
-// -------------------- Carga video --------------------
-document.getElementById("videoInput").addEventListener("change", e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  video = document.createElement("video");
-  video.src = URL.createObjectURL(file);
-  video.loop = true;
-  video.muted = false;
-  video.play();
-
-  video.addEventListener("loadedmetadata", () => {
-    videoRatio = video.videoWidth / video.videoHeight;
-    if (videoRatio > WIDTH / HEIGHT) {
-      videoH = HEIGHT;
-      videoW = videoH * videoRatio;
-      videoX = (WIDTH - videoW) / 2;
-      videoY = 0;
-    } else {
-      videoW = WIDTH;
-      videoH = videoW / videoRatio;
-      videoX = 0;
-      videoY = (HEIGHT - videoH) / 2;
-    }
-  });
-});
-
-// -------------------- Carga logo --------------------
-document.getElementById("logoInput").addEventListener("change", e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    logo = new Image();
-    logo.onload = () => {
-      logoW = 250;
-      logoH = logoW * (logo.height / logo.width);
-      logoX = WIDTH - logoW - 20;
-      logoY = HEIGHT - logoH - 20;
-    };
-    logo.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
-});
-
-// -------------------- Clamp para logo --------------------
-function clampLogo() {
-  if (!logo) return;
-  if (logoX < 0) logoX = 0;
-  if (logoY < 0) logoY = 0;
-  if (logoX + logoW > WIDTH) logoX = WIDTH - logoW;
-  if (logoY + logoH > HEIGHT) logoY = HEIGHT - logoH;
-}
-
-// -------------------- Gestos (mouse + touch) --------------------
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
@@ -109,6 +28,23 @@ function startDrag(e) {
   }
 }
 
+// -------------------- Limitar logo al canvas --------------------
+function clampLogo() {
+  if (!logo) return;
+
+  // Limitar ancho y alto
+  if (logoW > WIDTH) logoW = WIDTH;
+  if (logoH > HEIGHT) logoH = HEIGHT;
+
+  // Limitar posición X
+  if (logoX < 0) logoX = 0;
+  if (logoX + logoW > WIDTH) logoX = WIDTH - logoW;
+
+  // Limitar posición Y
+  if (logoY < 0) logoY = 0;
+  if (logoY + logoH > HEIGHT) logoY = HEIGHT - logoH;
+}
+
 function moveDrag(e) {
   if (!dragging) return;
   let [x, y] = getPos(e);
@@ -124,7 +60,8 @@ function moveDrag(e) {
       const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
       logoW *= zoom; logoH = logoW * (logo.height / logo.width);
       logoX = cx - logoW / 2; logoY = cy - logoH / 2;
-      clampLogo(); // límite aquí
+
+      clampLogo(); // <--- aquí limitamos el logo
     } else if (dragTarget === "video") {
       const cx = videoX + videoW / 2, cy = videoY + videoH / 2;
       videoW *= zoom; videoH = videoW / videoRatio;
@@ -132,8 +69,15 @@ function moveDrag(e) {
     }
     lastDist = dist;
   } else {
-    if (dragTarget === "logo") { logoX += dx; logoY += dy; clampLogo(); }
-    else if (dragTarget === "video") { videoX += dx; videoY += dy; }
+    if (dragTarget === "logo") { 
+      logoX += dx; 
+      logoY += dy; 
+      clampLogo(); // <--- también aquí al mover
+    }
+    else if (dragTarget === "video") { 
+      videoX += dx; 
+      videoY += dy; 
+    }
   }
   startX = x; startY = y;
 }
@@ -166,13 +110,8 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
 
   formData.append("logoX", Math.round(logoX));
   formData.append("logoY", Math.round(logoY));
-  formData.append("logoW", Math.round(logoW));
-  formData.append("logoH", Math.round(logoH));
-
-  formData.append("videoX", Math.round(videoX));
-  formData.append("videoY", Math.round(videoY));
-  formData.append("videoW", Math.round(videoW));
-  formData.append("videoH", Math.round(videoH));
+  formData.append("logoWidth", Math.round(logoW));
+  formData.append("logoHeight", Math.round(logoH));
 
   try {
     const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
