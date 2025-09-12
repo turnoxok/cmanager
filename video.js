@@ -6,16 +6,15 @@ canvas.height = HEIGHT;
 
 let video = null, logo = null;
 
-// Estados de video
+// Video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
 
-// Estados de logo
+// Logo
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
 // Arrastre
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
-// -------------------- Dibujo --------------------
 function drawEditor() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -25,7 +24,7 @@ function drawEditor() {
 function loop() { drawEditor(); requestAnimationFrame(loop); }
 loop();
 
-// -------------------- Carga video --------------------
+// -------------------- Carga Video --------------------
 document.getElementById("videoInput").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -51,7 +50,7 @@ document.getElementById("videoInput").addEventListener("change", e => {
   });
 });
 
-// -------------------- Carga logo --------------------
+// -------------------- Carga Logo --------------------
 document.getElementById("logoInput").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -69,7 +68,7 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-// -------------------- Gestos (mouse + touch) --------------------
+// -------------------- Gestos --------------------
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
@@ -83,6 +82,16 @@ function getPos(e) {
       (e.clientY - rect.top) * (HEIGHT / rect.height)
     ];
   }
+}
+
+function clampLogo() {
+  if (!logo) return;
+  if (logoW > WIDTH) logoW = WIDTH;
+  if (logoH > HEIGHT) logoH = HEIGHT;
+  if (logoX < 0) logoX = 0;
+  if (logoX + logoW > WIDTH) logoX = WIDTH - logoW;
+  if (logoY < 0) logoY = 0;
+  if (logoY + logoH > HEIGHT) logoY = HEIGHT - logoH;
 }
 
 function startDrag(e) {
@@ -111,10 +120,12 @@ function moveDrag(e) {
       e.touches[0].clientY - e.touches[1].clientY
     );
     const zoom = dist / lastDist;
+
     if (dragTarget === "logo") {
       const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
       logoW *= zoom; logoH = logoW * (logo.height / logo.width);
       logoX = cx - logoW / 2; logoY = cy - logoH / 2;
+      clampLogo();
     } else if (dragTarget === "video") {
       const cx = videoX + videoW / 2, cy = videoY + videoH / 2;
       videoW *= zoom; videoH = videoW / videoRatio;
@@ -122,58 +133,60 @@ function moveDrag(e) {
     }
     lastDist = dist;
   } else {
-    if (dragTarget === "logo") { logoX += dx; logoY += dy; }
+    if (dragTarget === "logo") { logoX += dx; logoY += dy; clampLogo(); }
     else if (dragTarget === "video") { videoX += dx; videoY += dy; }
   }
   startX = x; startY = y;
 }
 
-function endDrag(e) {
-  dragging = false;
-  lastDist = null;
-}
+function endDrag(e) { dragging = false; lastDist = null; }
 
 canvas.addEventListener("mousedown", startDrag);
 canvas.addEventListener("mousemove", moveDrag);
 canvas.addEventListener("mouseup", endDrag);
 canvas.addEventListener("mouseleave", endDrag);
-
 canvas.addEventListener("touchstart", startDrag);
 canvas.addEventListener("touchmove", moveDrag);
 canvas.addEventListener("touchend", endDrag);
 canvas.addEventListener("touchcancel", endDrag);
 
-// -------------------- Exportar --------------------
+// -------------------- Exportar con canvas.captureStream() --------------------
 document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video || !logo) return alert("Subí video y logo primero.");
 
-  const videoFile = document.getElementById("videoInput").files[0];
-  const logoFile = document.getElementById("logoInput").files[0];
+  const fps = 30;
+  const duration = video.duration || 5; // 5s si no se sabe
+  const stream = canvas.captureStream(fps);
+  const mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+  const chunks = [];
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  mediaRecorder.start();
 
-  const formData = new FormData();
-  formData.append("video", videoFile);
-  formData.append("logo", logoFile);
+  video.currentTime = 0;
+  video.play();
 
-  formData.append("logoX", Math.round(logoX));
-  formData.append("logoY", Math.round(logoY));
-  formData.append("logoWidth", Math.round(logoW));
-  formData.append("logoHeight", Math.round(logoH));
+  setTimeout(() => { mediaRecorder.stop(); video.pause(); }, duration * 1000);
 
-  try {
-    const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
-      method: "POST",
-      body: formData
-    });
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const formData = new FormData();
+    formData.append("videoBlob", blob, "canvas_capture.webm");
 
-    if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
+    try {
+      const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
+        method: "POST",
+        body: formData
+      });
 
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "video_final.mp4";
-    a.click();
-  } catch (err) {
-    console.error("Error al exportar:", err);
-    alert("Error al exportar: " + err.message);
-  }
+      if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
+      const mp4Blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(mp4Blob);
+      a.download = "video_final.mp4";
+      a.click();
+    } catch (err) {
+      console.error("Error al exportar:", err);
+      alert("Error al exportar: " + err.message);
+    }
+  };
 });
