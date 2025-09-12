@@ -6,15 +6,16 @@ canvas.height = HEIGHT;
 
 let video = null, logo = null;
 
-// Video
+// Estados de video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
 
-// Logo
+// Estados de logo
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
 // Arrastre
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
+// -------------------- Dibujo --------------------
 function drawEditor() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -68,7 +69,16 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-// -------------------- Gestos --------------------
+// -------------------- Clamp para logo --------------------
+function clampLogo() {
+  if (!logo) return;
+  if (logoX < 0) logoX = 0;
+  if (logoY < 0) logoY = 0;
+  if (logoX + logoW > WIDTH) logoX = WIDTH - logoW;
+  if (logoY + logoH > HEIGHT) logoY = HEIGHT - logoH;
+}
+
+// -------------------- Gestos (mouse + touch) --------------------
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
@@ -110,36 +120,28 @@ function moveDrag(e) {
       e.touches[0].clientY - e.touches[1].clientY
     );
     const zoom = dist / lastDist;
-
     if (dragTarget === "logo") {
       const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
       logoW *= zoom; logoH = logoW * (logo.height / logo.width);
-      // Limitar dentro del canvas
-      logoW = Math.min(logoW, WIDTH);
-      logoH = Math.min(logoH, HEIGHT);
-      logoX = Math.max(0, Math.min(cx - logoW / 2, WIDTH - logoW));
-      logoY = Math.max(0, Math.min(cy - logoH / 2, HEIGHT - logoH));
+      logoX = cx - logoW / 2; logoY = cy - logoH / 2;
+      clampLogo(); // límite aquí
     } else if (dragTarget === "video") {
       const cx = videoX + videoW / 2, cy = videoY + videoH / 2;
       videoW *= zoom; videoH = videoW / videoRatio;
       videoX = cx - videoW / 2; videoY = cy - videoH / 2;
     }
-
     lastDist = dist;
   } else {
-    if (dragTarget === "logo") {
-      logoX = Math.max(0, Math.min(logoX + dx, WIDTH - logoW));
-      logoY = Math.max(0, Math.min(logoY + dy, HEIGHT - logoH));
-    } else if (dragTarget === "video") {
-      videoX += dx;
-      videoY += dy;
-    }
+    if (dragTarget === "logo") { logoX += dx; logoY += dy; clampLogo(); }
+    else if (dragTarget === "video") { videoX += dx; videoY += dy; }
   }
-
   startX = x; startY = y;
 }
 
-function endDrag() { dragging = false; lastDist = null; }
+function endDrag(e) {
+  dragging = false;
+  lastDist = null;
+}
 
 canvas.addEventListener("mousedown", startDrag);
 canvas.addEventListener("mousemove", moveDrag);
@@ -162,15 +164,15 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   formData.append("video", videoFile);
   formData.append("logo", logoFile);
 
+  formData.append("logoX", Math.round(logoX));
+  formData.append("logoY", Math.round(logoY));
+  formData.append("logoW", Math.round(logoW));
+  formData.append("logoH", Math.round(logoH));
+
   formData.append("videoX", Math.round(videoX));
   formData.append("videoY", Math.round(videoY));
   formData.append("videoW", Math.round(videoW));
   formData.append("videoH", Math.round(videoH));
-
-  formData.append("logoX", Math.round(logoX));
-  formData.append("logoY", Math.round(logoY));
-  formData.append("logoWidth", Math.round(logoW));
-  formData.append("logoHeight", Math.round(logoH));
 
   try {
     const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
