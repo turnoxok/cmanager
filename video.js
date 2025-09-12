@@ -6,10 +6,10 @@ canvas.height = HEIGHT;
 
 let video = null, logo = null;
 
-// Estados de video
+// Estados del video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
 
-// Estados de logo
+// Estados del logo
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
 // Arrastre
@@ -32,7 +32,7 @@ document.getElementById("videoInput").addEventListener("change", e => {
   video = document.createElement("video");
   video.src = URL.createObjectURL(file);
   video.loop = true;
-  video.muted = false;
+  video.muted = true;
   video.play();
 
   video.addEventListener("loadedmetadata", () => {
@@ -85,22 +85,6 @@ function getPos(e) {
   }
 }
 
-function startDrag(e) {
-  let [x, y] = getPos(e);
-  if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
-  else dragTarget = "video";
-  dragging = true;
-  startX = x; startY = y;
-
-  if (e.touches && e.touches.length === 2) {
-    lastDist = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
-  }
-}
-
-// -------------------- Limitar logo al canvas --------------------
 function clampLogo() {
   if (!logo) return;
   if (logoW > WIDTH) logoW = WIDTH;
@@ -109,6 +93,20 @@ function clampLogo() {
   if (logoX + logoW > WIDTH) logoX = WIDTH - logoW;
   if (logoY < 0) logoY = 0;
   if (logoY + logoH > HEIGHT) logoY = HEIGHT - logoH;
+}
+
+function startDrag(e) {
+  let [x, y] = getPos(e);
+  if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
+  else dragTarget = "video";
+  dragging = true;
+  startX = x; startY = y;
+  if (e.touches && e.touches.length === 2) {
+    lastDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
 }
 
 function moveDrag(e) {
@@ -135,12 +133,10 @@ function moveDrag(e) {
     lastDist = dist;
   } else {
     if (dragTarget === "logo") { 
-      logoX += dx; 
-      logoY += dy; 
+      logoX += dx; logoY += dy; 
       clampLogo();
     } else if (dragTarget === "video") { 
-      videoX += dx; 
-      videoY += dy; 
+      videoX += dx; videoY += dy; 
     }
   }
   startX = x; startY = y;
@@ -170,7 +166,10 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const formData = new FormData();
   formData.append("video", videoFile);
   formData.append("logo", logoFile);
-
+  formData.append("videoX", Math.round(videoX));
+  formData.append("videoY", Math.round(videoY));
+  formData.append("videoWidth", Math.round(videoW));
+  formData.append("videoHeight", Math.round(videoH));
   formData.append("logoX", Math.round(logoX));
   formData.append("logoY", Math.round(logoY));
   formData.append("logoWidth", Math.round(logoW));
@@ -181,9 +180,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
       method: "POST",
       body: formData
     });
-
     if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
-
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
