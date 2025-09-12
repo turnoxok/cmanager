@@ -5,20 +5,27 @@ canvas.width = WIDTH;
 canvas.height = HEIGHT;
 
 let video = null, logo = null;
+
+// Estados de video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
+
+// Estados de logo
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
+
+// Arrastre
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
+// -------------------- Dibujo --------------------
 function drawEditor() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
   if (video && video.readyState >= 2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
   if (logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
 }
 function loop() { drawEditor(); requestAnimationFrame(loop); }
 loop();
 
+// -------------------- Carga video --------------------
 document.getElementById("videoInput").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -44,6 +51,7 @@ document.getElementById("videoInput").addEventListener("change", e => {
   });
 });
 
+// -------------------- Carga logo --------------------
 document.getElementById("logoInput").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -61,51 +69,114 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-canvas.addEventListener("mousedown", e => {
+// -------------------- Gestos (mouse + touch) --------------------
+function getPos(e) {
   const rect = canvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left) * (WIDTH / rect.width);
-  const y = (e.clientY - rect.top) * (HEIGHT / rect.height);
+  if (e.touches) {
+    return [
+      (e.touches[0].clientX - rect.left) * (WIDTH / rect.width),
+      (e.touches[0].clientY - rect.top) * (HEIGHT / rect.height)
+    ];
+  } else {
+    return [
+      (e.clientX - rect.left) * (WIDTH / rect.width),
+      (e.clientY - rect.top) * (HEIGHT / rect.height)
+    ];
+  }
+}
+
+function startDrag(e) {
+  let [x, y] = getPos(e);
   if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
   else dragTarget = "video";
   dragging = true;
   startX = x; startY = y;
-});
-canvas.addEventListener("mousemove", e => {
-  if (!dragging) return;
-  const rect = canvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left) * (WIDTH / rect.width);
-  const y = (e.clientY - rect.top) * (HEIGHT / rect.height);
-  const dx = x - startX, dy = y - startY;
-  if (dragTarget === "logo") { logoX += dx; logoY += dy; }
-  else if (dragTarget === "video") { videoX += dx; videoY += dy; }
-  startX = x; startY = y;
-});
-canvas.addEventListener("mouseup", () => { dragging = false; });
-canvas.addEventListener("mouseleave", () => { dragging = false; });
 
+  if (e.touches && e.touches.length === 2) {
+    lastDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}
+
+function moveDrag(e) {
+  if (!dragging) return;
+  let [x, y] = getPos(e);
+  const dx = x - startX, dy = y - startY;
+
+  if (e.touches && e.touches.length === 2 && lastDist) {
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const zoom = dist / lastDist;
+    if (dragTarget === "logo") {
+      const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
+      logoW *= zoom; logoH = logoW * (logo.height / logo.width);
+      logoX = cx - logoW / 2; logoY = cy - logoH / 2;
+    } else if (dragTarget === "video") {
+      const cx = videoX + videoW / 2, cy = videoY + videoH / 2;
+      videoW *= zoom; videoH = videoW / videoRatio;
+      videoX = cx - videoW / 2; videoY = cy - videoH / 2;
+    }
+    lastDist = dist;
+  } else {
+    if (dragTarget === "logo") { logoX += dx; logoY += dy; }
+    else if (dragTarget === "video") { videoX += dx; videoY += dy; }
+  }
+  startX = x; startY = y;
+}
+
+function endDrag(e) {
+  dragging = false;
+  lastDist = null;
+}
+
+canvas.addEventListener("mousedown", startDrag);
+canvas.addEventListener("mousemove", moveDrag);
+canvas.addEventListener("mouseup", endDrag);
+canvas.addEventListener("mouseleave", endDrag);
+
+canvas.addEventListener("touchstart", startDrag);
+canvas.addEventListener("touchmove", moveDrag);
+canvas.addEventListener("touchend", endDrag);
+canvas.addEventListener("touchcancel", endDrag);
+
+// -------------------- Exportar --------------------
 document.getElementById("exportBtn").addEventListener("click", async () => {
-  if (!video) return alert("Subí un video primero.");
+  if (!video || !logo) return alert("Subí video y logo primero.");
+
   const videoFile = document.getElementById("videoInput").files[0];
-  const logoFile = document.getElementById("logoInput").files[0] || null;
+  const logoFile = document.getElementById("logoInput").files[0];
 
   const formData = new FormData();
   formData.append("video", videoFile);
-  if (logoFile) formData.append("logo", logoFile);
+  formData.append("logo", logoFile);
 
   formData.append("logoX", Math.round(logoX));
   formData.append("logoY", Math.round(logoY));
   formData.append("logoWidth", Math.round(logoW));
   formData.append("logoHeight", Math.round(logoH));
 
-  const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
-    method: "POST",
-    body: formData
-  });
+  try {
+    const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
+      method: "POST",
+      body: formData
+    });
 
-  if (!res.ok) return alert("Error al exportar el video");
-  const blob = await res.blob();
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "video_final.mp4";
-  a.click();
+    if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
+
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "video_final.mp4";
+    a.click();
+  } catch (err) {
+    console.error("Error al exportar:", err);
+    alert("Error al exportar: " + err.message);
+  }
 });
+
+
+
