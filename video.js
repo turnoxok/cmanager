@@ -5,9 +5,13 @@ canvas.width = WIDTH;
 canvas.height = HEIGHT;
 
 let video = null, logo = null;
+
+// Estado video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
+// Estado logo
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
+// Gestos
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
 // -------------------- Dibujo --------------------
@@ -75,7 +79,6 @@ function getPos(e) {
             (e.clientY - rect.top) * (HEIGHT / rect.height)];
   }
 }
-
 function startDrag(e) {
   let [x, y] = getPos(e);
   if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
