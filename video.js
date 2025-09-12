@@ -1,20 +1,16 @@
-const canvas = document.getElementById('editorCanvas');
-const ctx = canvas.getContext('2d');
-
+const canvas = document.getElementById("editorCanvas");
+const ctx = canvas.getContext("2d");
 const WIDTH = 1080, HEIGHT = 1350;
 canvas.width = WIDTH;
 canvas.height = HEIGHT;
 
 let video = null, logo = null;
-
-// Estado logo y video
-let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
+let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
-// Gestos
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
-// Dibujar editor
+// -------------------- Dibujo --------------------
 function drawEditor() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -25,17 +21,17 @@ function drawEditor() {
 function loop() { drawEditor(); requestAnimationFrame(loop); }
 loop();
 
-// Carga video
-document.getElementById('videoInput').addEventListener('change', e => {
+// -------------------- Carga video --------------------
+document.getElementById("videoInput").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
-  video = document.createElement('video');
+  video = document.createElement("video");
   video.src = URL.createObjectURL(file);
   video.loop = true;
   video.muted = false;
   video.play();
 
-  video.addEventListener('loadedmetadata', () => {
+  video.addEventListener("loadedmetadata", () => {
     videoRatio = video.videoWidth / video.videoHeight;
     if (videoRatio > WIDTH / HEIGHT) {
       videoH = HEIGHT;
@@ -51,8 +47,8 @@ document.getElementById('videoInput').addEventListener('change', e => {
   });
 });
 
-// Carga logo
-document.getElementById('logoInput').addEventListener('change', e => {
+// -------------------- Carga logo --------------------
+document.getElementById("logoInput").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -69,75 +65,81 @@ document.getElementById('logoInput').addEventListener('change', e => {
   reader.readAsDataURL(file);
 });
 
-// Gestos touch
-canvas.addEventListener('touchstart', e => {
+// -------------------- Gestos (móvil/touch) --------------------
+canvas.addEventListener("touchstart", e => {
   const rect = canvas.getBoundingClientRect();
   const x = (e.touches[0].clientX - rect.left) * (WIDTH / rect.width);
   const y = (e.touches[0].clientY - rect.top) * (HEIGHT / rect.height);
 
   if (e.touches.length === 1) {
-    if (logo && x>=logoX && x<=logoX+logoW && y>=logoY && y<=logoY+logoH) dragTarget="logo";
-    else dragTarget="video";
-    dragging=true; startX=x; startY=y;
+    if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
+    else dragTarget = "video";
+    dragging = true;
+    startX = x; startY = y;
   } else if (e.touches.length === 2) {
-    lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
     const midX = (e.touches[0].clientX + e.touches[1].clientX)/2;
     const midY = (e.touches[0].clientY + e.touches[1].clientY)/2;
     const midCanvasX = (midX - rect.left)*(WIDTH/rect.width);
     const midCanvasY = (midY - rect.top)*(HEIGHT/rect.height);
-    if (logo && midCanvasX>=logoX && midCanvasX<=logoX+logoW && midCanvasY>=logoY && midCanvasY<=logoY+logoH) dragTarget="logo";
-    else dragTarget="video";
+    dragTarget = (logo && midCanvasX>=logoX && midCanvasX<=logoX+logoW && midCanvasY>=logoY && midCanvasY<=logoY+logoH) ? "logo" : "video";
   }
 });
-
-canvas.addEventListener('touchmove', e => {
+canvas.addEventListener("touchmove", e => {
   e.preventDefault();
   const rect = canvas.getBoundingClientRect();
   const x = (e.touches[0].clientX - rect.left)*(WIDTH/rect.width);
   const y = (e.touches[0].clientY - rect.top)*(HEIGHT/rect.height);
 
-  if (e.touches.length===1 && dragging) {
-    const dx=x-startX, dy=y-startY;
-    if (dragTarget==="logo"){ logoX+=dx; logoY+=dy; }
-    else if (dragTarget==="video"){ videoX+=dx; videoY+=dy; }
-    startX=x; startY=y;
-  } else if (e.touches.length===2 && lastDist) {
-    const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-    const zoom=dist/lastDist;
-    if (dragTarget==="logo"){ const cx=logoX+logoW/2, cy=logoY+logoH/2; logoW*=zoom; logoH=logoW*(logo.height/logo.width); logoX=cx-logoW/2; logoY=cy-logoH/2; }
-    else if (dragTarget==="video"){ const cx=videoX+videoW/2, cy=videoY+videoH/2; videoW*=zoom; videoH=videoW/videoRatio; videoX=cx-videoW/2; videoY=cy-videoH/2; }
-    lastDist=dist;
+  if (e.touches.length === 1 && dragging) {
+    const dx = x - startX, dy = y - startY;
+    if (dragTarget === "logo") { logoX += dx; logoY += dy; }
+    else if (dragTarget === "video") { videoX += dx; videoY += dy; }
+    startX = x; startY = y;
+  } else if (e.touches.length === 2 && lastDist) {
+    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const zoom = dist / lastDist;
+    if (dragTarget === "logo") { 
+      const cx = logoX + logoW/2, cy = logoY + logoH/2;
+      logoW *= zoom; logoH = logoW * (logo.height/logo.width);
+      logoX = cx - logoW/2; logoY = cy - logoH/2;
+    } else if (dragTarget === "video") { 
+      const cx = videoX + videoW/2, cy = videoY + videoH/2;
+      videoW *= zoom; videoH = videoW / videoRatio;
+      videoX = cx - videoW/2; videoY = cy - videoH/2;
+    }
+    lastDist = dist;
   }
 });
+canvas.addEventListener("touchend", e => {
+  if(e.touches.length===0) dragging=false;
+  if(e.touches.length<2) lastDist=null;
+});
 
-canvas.addEventListener('touchend', e => { if(e.touches.length===0) dragging=false; if(e.touches.length<2) lastDist=null; });
+// -------------------- Exportar (envía video + logo al backend) --------------------
+document.getElementById("exportBtn").addEventListener("click", async () => {
+  if (!video) return alert("Subí un video primero.");
 
-// Exportar
-document.getElementById('exportBtn').addEventListener('click', async () => {
-  if(!video) return alert("Subí un video primero.");
+  const videoFile = document.getElementById("videoInput").files[0];
+  const logoFile = document.getElementById("logoInput").files[0] || null;
 
-  // Crear un canvas temporal para capturar frame final
-  const exportCanvas = document.createElement('canvas');
-  exportCanvas.width = WIDTH; exportCanvas.height = HEIGHT;
-  const exportCtx = exportCanvas.getContext('2d');
+  const formData = new FormData();
+  formData.append("video", videoFile);
+  if (logoFile) formData.append("logo", logoFile);
 
-  // Dibujar video + logo actual
-  exportCtx.fillStyle="#000";
-  exportCtx.fillRect(0,0,WIDTH,HEIGHT);
-  exportCtx.drawImage(video, videoX, videoY, videoW, videoH);
-  if(logo) exportCtx.drawImage(logo, logoX, logoY, logoW, logoH);
+  formData.append("logoX", Math.round(logoX));
+  formData.append("logoY", Math.round(logoY));
+  formData.append("logoWidth", Math.round(logoW));
+  formData.append("logoHeight", Math.round(logoH));
 
-  const videoData = exportCanvas.toDataURL("video/webm"); // WebM temporal
-  const logoData = logo ? exportCanvas.toDataURL("image/png") : null;
-
-  // Enviar a servidor para MP4
-  const response = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ videoData, logoData, logoX, logoY, logoW, logoH })
+  const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", {
+    method: "POST",
+    body: formData
   });
 
-  const blob = await response.blob();
+  if (!res.ok) return alert("Error al exportar el video");
+
+  const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "video_final.mp4";
