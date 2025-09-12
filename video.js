@@ -6,10 +6,10 @@ canvas.height = HEIGHT;
 
 let video = null, logo = null;
 
-// Estados del video
+// Estados de video
 let videoX = 0, videoY = 0, videoW = WIDTH, videoH = HEIGHT, videoRatio = 1;
 
-// Estados del logo
+// Estados de logo
 let logoX = WIDTH - 270, logoY = HEIGHT - 270, logoW = 250, logoH = 250;
 
 // Arrastre
@@ -32,7 +32,7 @@ document.getElementById("videoInput").addEventListener("change", e => {
   video = document.createElement("video");
   video.src = URL.createObjectURL(file);
   video.loop = true;
-  video.muted = true;
+  video.muted = false;
   video.play();
 
   video.addEventListener("loadedmetadata", () => {
@@ -85,22 +85,13 @@ function getPos(e) {
   }
 }
 
-function clampLogo() {
-  if (!logo) return;
-  if (logoW > WIDTH) logoW = WIDTH;
-  if (logoH > HEIGHT) logoH = HEIGHT;
-  if (logoX < 0) logoX = 0;
-  if (logoX + logoW > WIDTH) logoX = WIDTH - logoW;
-  if (logoY < 0) logoY = 0;
-  if (logoY + logoH > HEIGHT) logoY = HEIGHT - logoH;
-}
-
 function startDrag(e) {
   let [x, y] = getPos(e);
   if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
   else dragTarget = "video";
   dragging = true;
   startX = x; startY = y;
+
   if (e.touches && e.touches.length === 2) {
     lastDist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
@@ -124,7 +115,6 @@ function moveDrag(e) {
       const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
       logoW *= zoom; logoH = logoW * (logo.height / logo.width);
       logoX = cx - logoW / 2; logoY = cy - logoH / 2;
-      clampLogo();
     } else if (dragTarget === "video") {
       const cx = videoX + videoW / 2, cy = videoY + videoH / 2;
       videoW *= zoom; videoH = videoW / videoRatio;
@@ -132,12 +122,8 @@ function moveDrag(e) {
     }
     lastDist = dist;
   } else {
-    if (dragTarget === "logo") { 
-      logoX += dx; logoY += dy; 
-      clampLogo();
-    } else if (dragTarget === "video") { 
-      videoX += dx; videoY += dy; 
-    }
+    if (dragTarget === "logo") { logoX += dx; logoY += dy; }
+    else if (dragTarget === "video") { videoX += dx; videoY += dy; }
   }
   startX = x; startY = y;
 }
@@ -151,6 +137,7 @@ canvas.addEventListener("mousedown", startDrag);
 canvas.addEventListener("mousemove", moveDrag);
 canvas.addEventListener("mouseup", endDrag);
 canvas.addEventListener("mouseleave", endDrag);
+
 canvas.addEventListener("touchstart", startDrag);
 canvas.addEventListener("touchmove", moveDrag);
 canvas.addEventListener("touchend", endDrag);
@@ -166,10 +153,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const formData = new FormData();
   formData.append("video", videoFile);
   formData.append("logo", logoFile);
-  formData.append("videoX", Math.round(videoX));
-  formData.append("videoY", Math.round(videoY));
-  formData.append("videoWidth", Math.round(videoW));
-  formData.append("videoHeight", Math.round(videoH));
+
   formData.append("logoX", Math.round(logoX));
   formData.append("logoY", Math.round(logoY));
   formData.append("logoWidth", Math.round(logoW));
@@ -180,7 +164,9 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
       method: "POST",
       body: formData
     });
+
     if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
+
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
