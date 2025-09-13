@@ -1,34 +1,59 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Editor Simple de Video</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  body { margin:0; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; background:#111; color:#fff; }
-  h1 { margin:20px 0; }
-  #editorContainer { position:relative; width:90%; max-width:540px; background:#000; border-radius:12px; overflow:hidden; }
-  canvas { width:100%; display:block; touch-action:none; }
-  .controls { margin:20px 0; display:flex; flex-direction:column; gap:10px; width:90%; max-width:540px; }
-  input[type=file] { padding:10px; border-radius:8px; cursor:pointer; }
-  button { padding:12px; border:none; border-radius:8px; background:#28a745; color:#fff; cursor:pointer; }
-  button:hover { background:#218838; }
-</style>
-</head>
-<body>
+document.getElementById("exportBtn").addEventListener("click", async () => {
+  if (!video || !logo) return alert("Subí video y logo primero.");
+  const videoFile = document.getElementById("videoInput").files[0];
+  const logoFile = document.getElementById("logoInput").files[0];
 
-<h1>Editor Simple de Video</h1>
-<div id="editorContainer"><canvas id="editorCanvas"></canvas></div>
+  const formData = new FormData();
+  formData.append("video", videoFile);
+  formData.append("logo", logoFile);
+  formData.append("logoX", Math.round(logoX));
+  formData.append("logoY", Math.round(logoY));
+  formData.append("logoWidth", Math.round(logoW));
+  formData.append("logoHeight", Math.round(logoH));
 
+  // barra de progreso
+  let progressBar = document.getElementById("progressBar");
+  if (!progressBar) {
+    progressBar = document.createElement("progress");
+    progressBar.id = "progressBar";
+    progressBar.max = 100;
+    progressBar.value = 0;
+    document.body.appendChild(progressBar);
+  }
 
-<div class="controls">
-  <label>Selecciona Video<input type="file" id="videoInput" accept="video/*"></label>
-  <label>Selecciona Logo<input type="file" id="logoInput" accept="image/*"></label>
-  <button id="exportBtn">Exportar Video</button>
- 
+  try {
+    const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", { 
+      method: "POST", 
+      body: formData 
+    });
 
-</div>
+    if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
+    const { jobId } = await res.json();
 
-<script src="video.js"></script>
-</body>
-</html>
+    // escuchamos el progreso en tiempo real
+    const evtSource = new EventSource(`https://imagenes-y-video-production.up.railway.app/progress/${jobId}`);
+    evtSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.end) {
+        progressBar.value = 100;
+        evtSource.close();
+
+        // descargar video final
+        fetch("https://imagenes-y-video-production.up.railway.app/convert", { 
+          method: "POST", 
+          body: formData 
+        }).then(r => r.blob()).then(blob => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "video_final.mp4";
+          a.click();
+        });
+      } else if (data.percent) {
+        progressBar.value = Math.round(data.percent);
+      }
+    };
+  } catch (err) {
+    alert("Error al exportar: " + err.message);
+    console.error(err);
+  }
+});
