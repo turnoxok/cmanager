@@ -1,4 +1,4 @@
-const API_BASE = "https://imagenes-y-video-production.up.railway.app"; // 🚨 solo dominio, no pongas /convert
+const API_BASE = "https://imagenes-y-video-production.up.railway.app"; // solo dominio
 
 const canvas = document.getElementById("editorCanvas");
 const ctx = canvas.getContext("2d");
@@ -72,7 +72,6 @@ function startDrag(e) {
   else dragTarget = null;
   dragging = true; startX = x; startY = y;
 
-  // NUEVO: detectar pinch
   if (e.touches && e.touches.length === 2) {
     lastDist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
@@ -84,7 +83,7 @@ function startDrag(e) {
 function moveDrag(e) {
   if (!dragging) return;
 
-  // NUEVO: evita zoom de la página
+  // NUEVO: prevenir zoom de página solo en pinch
   if (e.touches && e.touches.length === 2) e.preventDefault();
 
   const [x, y] = getPos(e);
@@ -101,7 +100,7 @@ function moveDrag(e) {
       let newW = logoW * zoom;
       let newH = logoH * zoom;
 
-      // NUEVO: limitar tamaño del logo
+      // Limitar tamaño del logo
       if (newW > videoW) { newW = videoW; newH = newW * (logo.height / logo.width); }
       if (newH > videoH) { newH = videoH; newW = newH * (logo.width / logo.height); }
 
@@ -128,7 +127,7 @@ canvas.addEventListener("mousemove", moveDrag);
 canvas.addEventListener("mouseup", endDrag);
 canvas.addEventListener("mouseleave", endDrag);
 canvas.addEventListener("touchstart", startDrag);
-canvas.addEventListener("touchmove", moveDrag, { passive: false }); // NUEVO: passive false
+canvas.addEventListener("touchmove", moveDrag, { passive: false });
 canvas.addEventListener("touchend", endDrag);
 canvas.addEventListener("touchcancel", endDrag);
 
@@ -151,18 +150,33 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const { jobId } = await res.json();
 
   const progressBar = document.getElementById("progressBar");
-  progressBar.value = 0; // NUEVO: inicializa barra en 0
+  progressBar.value = 0;
 
+  // NUEVO: simulación inicial para que la barra suba desde el primer segundo
+  let simulatedProgress = 0;
+  const simulateInterval = setInterval(() => {
+    if (simulatedProgress < 30) { // sube hasta 30% antes de recibir updates reales
+      simulatedProgress += 1;
+      progressBar.value = simulatedProgress;
+    } else {
+      clearInterval(simulateInterval);
+    }
+  }, 100); // 1% cada 100ms
+
+  // EventSource real para progreso del backend
   const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
   evtSource.onmessage = async (e) => {
     const data = JSON.parse(e.data);
+
     if (data.percent) {
-      progressBar.value = Math.round(data.percent); // NUEVO: actualiza progresivamente
+      progressBar.value = Math.round(data.percent);
     }
+
     if (data.end) {
       progressBar.value = 100;
       evtSource.close();
 
+      // descarga inmediata
       const dres = await fetch(`${API_BASE}/download/${jobId}`);
       const blob = await dres.blob();
       const a = document.createElement("a");
