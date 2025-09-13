@@ -165,27 +165,28 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   }, 200);
 
   // EventSource real para progreso del backend
-  const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
-  evtSource.onmessage = async (e) => {
-    const data = JSON.parse(e.data);
+ const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
+evtSource.onmessage = async (e) => {
+  const data = JSON.parse(e.data);
 
-    if (data.percent) {
-      progressBar.value = Math.round(data.percent);
-    }
+  // Actualiza la barra solo si sube
+  if (data.percent) {
+    progressBar.value = Math.max(progressBar.value, Math.round(data.percent));
+  }
 
-    if (data.end) {
-      progressBar.value = 100;
-      evtSource.close();
+  // Cuando el backend indica que terminó
+  if (data.end) {
+    progressBar.value = 100;
+    evtSource.close();
 
-      // descarga inmediata
-      fetch(`${API_BASE}/download/${jobId}`)
-        .then(res => res.blob())
-        .then(blob => {
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = "video_final.mp4";
-          a.click();
-        });
-    }
-  };
-});
+    // descarga inmediata
+    fetch(`${API_BASE}/download/${jobId}`)
+      .then(res => res.blob())
+      .then(blob => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "video_final.mp4";
+        a.click();
+      });
+  }
+};
