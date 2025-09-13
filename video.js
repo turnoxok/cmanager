@@ -141,9 +141,10 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
 });
 
 
-// -------------------- Exportar --------------------
+// Reemplaza el handler de exportBtn por esto:
 document.getElementById("exportBtn").addEventListener("click", async () => {
-  if(!video || !logo) return alert("Subí video y logo primero.");
+  if (!video || !logo) return alert("Subí video y logo primero.");
+
   const videoFile = document.getElementById("videoInput").files[0];
   const logoFile = document.getElementById("logoInput").files[0];
 
@@ -155,33 +156,60 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   formData.append("logoWidth", Math.round(logoW));
   formData.append("logoHeight", Math.round(logoH));
 
-  try{
-    // 🔹 Paso 1: pedimos conversión → devuelve jobId
-    const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", { 
-      method:"POST", 
-      body: formData 
-    });
-
-    if(!res.ok) throw new Error(`Server error: ${res.statusText}`);
+  try {
+    // 1) iniciar conversión -> nos devuelve jobId
+    const res = await fetch(`${API_BASE}/convert`, { method: "POST", body: formData });
+    if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
     const { jobId } = await res.json();
 
-    // 🔹 Paso 2: escuchamos progreso
+    // 2) mostrar barra y suscribirse a SSE
     const progressBar = document.getElementById("progressBar");
     progressBar.style.display = "block";
     progressBar.value = 0;
 
-    const evtSource = new EventSource(`https://imagenes-y-video-production.up.railway.app/progress/${jobId}`);
-    evtSource.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      if (data.end) {
-        progressBar.value = 100;
-        evtSource.close();
-      } else if (data.percent) {
-        progressBar.value = Math.round(data.percent);
+    const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
+    evtSource.onmessage = async (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.error) {
+          evtSource.close();
+          alert("Error en el servidor: " + data.error);
+          progressBar.style.display = "none";
+          return;
+        }
+        if (typeof data.percent !== "undefined") {
+          progressBar.value = Math.min(Math.round(data.percent), 100);
+        }
+        if (data.end) {
+          progressBar.value = 100;
+          evtSource.close();
+
+          // 3) pedir el archivo terminado y forzar descarga
+          const dres = await fetch(`${API_BASE}/download/${jobId}`);
+          if (!dres.ok) {
+            alert("No se pudo descargar el archivo: " + dres.statusText);
+            progressBar.style.display = "none";
+            return;
+          }
+          const blob = await dres.blob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "video_final.mp4";
+          a.click();
+          progressBar.style.display = "none";
+        }
+      } catch (err) {
+        console.error("Error parseando SSE:", err);
       }
     };
-  }catch(err){ 
-    alert("Error al exportar: " + err.message); 
-    console.error(err);
+
+    evtSource.onerror = (err) => {
+      console.error("EventSource error:", err);
+      // No cerramos automáticamente para que intente reconectar (EventSource reconecta solo).
+    };
+
+  } catch (err) {
+    console.error("Error al exportar:", err);
+    alert("Error al exportar: " + err.message);
   }
 });
