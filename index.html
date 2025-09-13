@@ -6,9 +6,9 @@
   <title>Editor de Video</title>
   <style>
     /* Fondo y tipografía */
-    html, body {
-  touch-action: none; /* evita el zoom y scroll por gestos */
-  overscroll-behavior: none;
+   /* NUEVO: solo el canvas maneja gestos para zoom/logo */
+#editorCanvas {
+  touch-action: none; /* permite pinch solo en canvas */
 }
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
