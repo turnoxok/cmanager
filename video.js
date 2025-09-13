@@ -1,3 +1,5 @@
+const API_BASE = "http://localhost:3000"; // ⚠️ cambiar si deployás
+
 const canvas = document.getElementById("editorCanvas");
 const ctx = canvas.getContext("2d");
 let video = null, logo = null;
@@ -15,6 +17,7 @@ function drawEditor() {
 }
 drawEditor();
 
+// --- carga de video ---
 document.getElementById("videoInput").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   video = document.createElement("video");
@@ -29,16 +32,16 @@ document.getElementById("videoInput").addEventListener("change", e => {
   });
 });
 
-
+// --- carga de logo ---
 document.getElementById("logoInput").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
     logo = new Image();
     logo.onload = () => {
-      logoW = 100; 
-      logoH = logoW * (logo.height / logo.width); 
-      logoX = videoW - logoW - 10; 
+      logoW = 100;
+      logoH = logoW * (logo.height / logo.width);
+      logoX = videoW - logoW - 10;
       logoY = videoH - logoH - 10;
     };
     logo.src = ev.target.result;
@@ -46,22 +49,29 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-function getPos(e){
+// --- drag & drop logo ---
+function getPos(e) {
   const rect = canvas.getBoundingClientRect();
-  if(e.touches){
-    return [(e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
-            (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)];
-  } else return [(e.clientX - rect.left) * (canvas.width / rect.width),
-                  (e.clientY - rect.top) * (canvas.height / rect.height)];
+  if (e.touches) {
+    return [
+      (e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
+      (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)
+    ];
+  } else {
+    return [
+      (e.clientX - rect.left) * (canvas.width / rect.width),
+      (e.clientY - rect.top) * (canvas.height / rect.height)
+    ];
+  }
 }
 
-function startDrag(e){
+function startDrag(e) {
   const [x, y] = getPos(e);
-  if(logo && x >= logoX && x <= logoX+logoW && y >= logoY && y <= logoY+logoH) dragTarget = "logo";
+  if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
   else dragTarget = null;
   dragging = true; startX = x; startY = y;
 
-  if(e.touches && e.touches.length === 2){
+  if (e.touches && e.touches.length === 2) {
     lastDist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
@@ -69,43 +79,37 @@ function startDrag(e){
   }
 }
 
-function moveDrag(e){
-  if(!dragging) return;
+function moveDrag(e) {
+  if (!dragging) return;
   const [x, y] = getPos(e);
   const dx = x - startX, dy = y - startY;
 
-  if(e.touches && e.touches.length === 2 && lastDist){
+  if (e.touches && e.touches.length === 2 && lastDist) {
     const dist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
     );
     const zoom = dist / lastDist;
-
-    if(dragTarget === "logo"){
-      const cx = logoX + logoW/2, cy = logoY + logoH/2;
+    if (dragTarget === "logo") {
+      const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
       let newW = logoW * zoom;
       let newH = logoH * zoom;
-
-      // limitar tamaño al video
-      if(newW > videoW) { newW = videoW; newH = newW * (logo.height/logo.width); }
-      if(newH > videoH) { newH = videoH; newW = newH * (logo.width/logo.height); }
-
+      if (newW > videoW) { newW = videoW; newH = newW * (logo.height / logo.width); }
+      if (newH > videoH) { newH = videoH; newW = newH * (logo.width / logo.height); }
       logoW = newW; logoH = newH;
-      logoX = Math.min(Math.max(0, cx - logoW/2), videoW - logoW);
-      logoY = Math.min(Math.max(0, cy - logoH/2), videoH - logoH);
+      logoX = Math.min(Math.max(0, cx - logoW / 2), videoW - logoW);
+      logoY = Math.min(Math.max(0, cy - logoH / 2), videoH - logoH);
     }
     lastDist = dist;
   } else {
-    if(dragTarget === "logo"){
-      logoX = Math.min(Math.max(0, logoX+dx), videoW - logoW);
-      logoY = Math.min(Math.max(0, logoY+dy), videoH - logoH);
+    if (dragTarget === "logo") {
+      logoX = Math.min(Math.max(0, logoX + dx), videoW - logoW);
+      logoY = Math.min(Math.max(0, logoY + dy), videoH - logoH);
     }
   }
-
   startX = x; startY = y;
 }
-
-function endDrag(e){ dragging = false; lastDist = null; }
+function endDrag() { dragging = false; lastDist = null; }
 
 canvas.addEventListener("mousedown", startDrag);
 canvas.addEventListener("mousemove", moveDrag);
@@ -116,8 +120,10 @@ canvas.addEventListener("touchmove", moveDrag);
 canvas.addEventListener("touchend", endDrag);
 canvas.addEventListener("touchcancel", endDrag);
 
+// --- exportar con barra ---
 document.getElementById("exportBtn").addEventListener("click", async () => {
-  if(!video || !logo) return alert("Subí video y logo primero.");
+  if (!video || !logo) return alert("Subí video y logo primero.");
+
   const videoFile = document.getElementById("videoInput").files[0];
   const logoFile = document.getElementById("logoInput").files[0];
 
@@ -129,13 +135,28 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   formData.append("logoWidth", Math.round(logoW));
   formData.append("logoHeight", Math.round(logoH));
 
-  try{
-    const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", { method:"POST", body: formData });
-    if(!res.ok) throw new Error(`Server error: ${res.statusText}`);
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "video_final.mp4";
-    a.click();
-  }catch(err){ alert("Error al exportar: " + err.message); console.error(err);}
+  const res = await fetch(`${API_BASE}/convert`, { method: "POST", body: formData });
+  const { jobId } = await res.json();
+
+  const progressBar = document.getElementById("progressBar");
+  progressBar.value = 0;
+
+  const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
+  evtSource.onmessage = async (e) => {
+    const data = JSON.parse(e.data);
+    if (data.percent) {
+      progressBar.value = Math.round(data.percent);
+    }
+    if (data.end) {
+      progressBar.value = 100;
+      evtSource.close();
+
+      const dres = await fetch(`${API_BASE}/download/${jobId}`);
+      const blob = await dres.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "video_final.mp4";
+      a.click();
+    }
+  };
 });
