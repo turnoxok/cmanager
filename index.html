@@ -1,118 +1,24 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Conversor de Video</title>
+  <meta charset="UTF-8">
+  <title>Editor de Video</title>
   <style>
-    body {
-      margin: 0;
-      font-family: "Segoe UI", Tahoma, sans-serif;
-      background: #f4f6f9;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    .container {
-      background: #fff;
-      padding: 2rem;
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-      max-width: 500px;
-      width: 90%;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: 1.6rem;
-      margin-bottom: 1rem;
-      color: #333;
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    label.upload-btn {
-      display: inline-block;
-      padding: 0.8rem 1.2rem;
-      background: #4f46e5;
-      color: #fff;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.3s;
-    }
-    label.upload-btn:hover {
-      background: #3730a3;
-    }
-
-    .btn {
-      margin-top: 1rem;
-      padding: 0.8rem 1.2rem;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.3s;
-    }
-
-    .convert-btn {
-      background: #10b981;
-      color: white;
-    }
-    .convert-btn:hover {
-      background: #059669;
-    }
-
-    .progress-container {
-      margin: 1.5rem 0;
-      display: none;
-    }
-    progress {
-      width: 100%;
-      height: 18px;
-    }
-
-    video {
-      width: 100%;
-      max-height: 250px;
-      margin-top: 1rem;
-      border-radius: 12px;
-      background: #000;
-    }
-
-    .download-btn {
-      background: #2563eb;
-      color: white;
-      margin-top: 1rem;
-    }
-    .download-btn:hover {
-      background: #1d4ed8;
-    }
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    canvas { border: 1px solid #ccc; display: block; margin: 20px auto; max-width: 100%; }
+    #progressBar { width: 80%; height: 20px; margin-top: 15px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Conversor de Video</h1>
+  <h1>Editor de Video con Logo</h1>
 
-    <input type="file" id="videoInput" accept="video/*" />
-    <label for="videoInput" class="upload-btn">Seleccionar Video</label>
+  <input type="file" id="videoInput" accept="video/*"><br><br>
+  <input type="file" id="logoInput" accept="image/*"><br><br>
 
-    <br/>
-    <button id="convertBtn" class="btn convert-btn">Convertir a MP4</button>
+  <canvas id="editorCanvas"></canvas><br>
 
-    <div class="progress-container" id="progressContainer">
-      <progress id="progressBar" value="0" max="100"></progress>
-      <p id="progressText">0%</p>
-    </div>
-
-    <video id="preview" controls></video>
-    <br/>
-    <a id="downloadBtn" class="btn download-btn" style="display:none;">Descargar Video</a>
-  </div>
+  <button id="exportBtn">Exportar</button><br>
+  <progress id="progressBar" value="0" max="100"></progress>
 
   <script src="video.js"></script>
 </body>
