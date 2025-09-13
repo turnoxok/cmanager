@@ -1,3 +1,5 @@
+const API_BASE = "https://imagenes-y-video-production.up.railway.app"; // Cambiá si usás otro host
+
 const canvas = document.getElementById("editorCanvas");
 const ctx = canvas.getContext("2d");
 let video = null, logo = null;
@@ -7,6 +9,7 @@ let logoX = 0, logoY = 0, logoW = 100, logoH = 100;
 
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
+// -------------------- Dibujo del editor --------------------
 function drawEditor() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (video && video.readyState >= 2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
@@ -15,6 +18,7 @@ function drawEditor() {
 }
 drawEditor();
 
+// -------------------- Carga de video --------------------
 document.getElementById("videoInput").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   video = document.createElement("video");
@@ -29,16 +33,16 @@ document.getElementById("videoInput").addEventListener("change", e => {
   });
 });
 
-
+// -------------------- Carga de logo --------------------
 document.getElementById("logoInput").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
     logo = new Image();
     logo.onload = () => {
-      logoW = 100; 
-      logoH = logoW * (logo.height / logo.width); 
-      logoX = videoW - logoW - 10; 
+      logoW = 100;
+      logoH = logoW * (logo.height / logo.width);
+      logoX = videoW - logoW - 10;
       logoY = videoH - logoH - 10;
     };
     logo.src = ev.target.result;
@@ -46,22 +50,29 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-function getPos(e){
+// -------------------- Drag & zoom --------------------
+function getPos(e) {
   const rect = canvas.getBoundingClientRect();
-  if(e.touches){
-    return [(e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
-            (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)];
-  } else return [(e.clientX - rect.left) * (canvas.width / rect.width),
-                  (e.clientY - rect.top) * (canvas.height / rect.height)];
+  if (e.touches) {
+    return [
+      (e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
+      (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)
+    ];
+  } else {
+    return [
+      (e.clientX - rect.left) * (canvas.width / rect.width),
+      (e.clientY - rect.top) * (canvas.height / rect.height)
+    ];
+  }
 }
 
-function startDrag(e){
+function startDrag(e) {
   const [x, y] = getPos(e);
-  if(logo && x >= logoX && x <= logoX+logoW && y >= logoY && y <= logoY+logoH) dragTarget = "logo";
+  if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
   else dragTarget = null;
   dragging = true; startX = x; startY = y;
 
-  if(e.touches && e.touches.length === 2){
+  if (e.touches && e.touches.length === 2) {
     lastDist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
@@ -69,43 +80,43 @@ function startDrag(e){
   }
 }
 
-function moveDrag(e){
-  if(!dragging) return;
+function moveDrag(e) {
+  if (!dragging) return;
   const [x, y] = getPos(e);
   const dx = x - startX, dy = y - startY;
 
-  if(e.touches && e.touches.length === 2 && lastDist){
+  if (e.touches && e.touches.length === 2 && lastDist) {
     const dist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
     );
     const zoom = dist / lastDist;
 
-    if(dragTarget === "logo"){
-      const cx = logoX + logoW/2, cy = logoY + logoH/2;
+    if (dragTarget === "logo") {
+      const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
       let newW = logoW * zoom;
       let newH = logoH * zoom;
 
-      // limitar tamaño al video
-      if(newW > videoW) { newW = videoW; newH = newW * (logo.height/logo.width); }
-      if(newH > videoH) { newH = videoH; newW = newH * (logo.width/logo.height); }
+      // Limitar tamaño al video
+      if (newW > videoW) { newW = videoW; newH = newW * (logo.height / logo.width); }
+      if (newH > videoH) { newH = videoH; newW = newH * (logo.width / logo.height); }
 
       logoW = newW; logoH = newH;
-      logoX = Math.min(Math.max(0, cx - logoW/2), videoW - logoW);
-      logoY = Math.min(Math.max(0, cy - logoH/2), videoH - logoH);
+      logoX = Math.min(Math.max(0, cx - logoW / 2), videoW - logoW);
+      logoY = Math.min(Math.max(0, cy - logoH / 2), videoH - logoH);
     }
     lastDist = dist;
   } else {
-    if(dragTarget === "logo"){
-      logoX = Math.min(Math.max(0, logoX+dx), videoW - logoW);
-      logoY = Math.min(Math.max(0, logoY+dy), videoH - logoH);
+    if (dragTarget === "logo") {
+      logoX = Math.min(Math.max(0, logoX + dx), videoW - logoW);
+      logoY = Math.min(Math.max(0, logoY + dy), videoH - logoH);
     }
   }
 
   startX = x; startY = y;
 }
 
-function endDrag(e){ dragging = false; lastDist = null; }
+function endDrag(e) { dragging = false; lastDist = null; }
 
 canvas.addEventListener("mousedown", startDrag);
 canvas.addEventListener("mousemove", moveDrag);
@@ -116,32 +127,7 @@ canvas.addEventListener("touchmove", moveDrag);
 canvas.addEventListener("touchend", endDrag);
 canvas.addEventListener("touchcancel", endDrag);
 
-document.getElementById("exportBtn").addEventListener("click", async () => {
-  if(!video || !logo) return alert("Subí video y logo primero.");
-  const videoFile = document.getElementById("videoInput").files[0];
-  const logoFile = document.getElementById("logoInput").files[0];
-
-  const formData = new FormData();
-  formData.append("video", videoFile);
-  formData.append("logo", logoFile);
-  formData.append("logoX", Math.round(logoX));
-  formData.append("logoY", Math.round(logoY));
-  formData.append("logoWidth", Math.round(logoW));
-  formData.append("logoHeight", Math.round(logoH));
-
-  try{
-    const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", { method:"POST", body: formData });
-    if(!res.ok) throw new Error(`Server error: ${res.statusText}`);
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "video_final.mp4";
-    a.click();
-  }catch(err){ alert("Error al exportar: " + err.message); console.error(err);}
-});
-
-
-// Reemplaza el handler de exportBtn por esto:
+// -------------------- Exportar con barra de progreso --------------------
 document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video || !logo) return alert("Subí video y logo primero.");
 
@@ -157,12 +143,12 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   formData.append("logoHeight", Math.round(logoH));
 
   try {
-    // 1) iniciar conversión -> nos devuelve jobId
+    // 1) Iniciar conversión y obtener jobId
     const res = await fetch(`${API_BASE}/convert`, { method: "POST", body: formData });
     if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
     const { jobId } = await res.json();
 
-    // 2) mostrar barra y suscribirse a SSE
+    // 2) Mostrar barra y suscribirse a SSE
     const progressBar = document.getElementById("progressBar");
     progressBar.style.display = "block";
     progressBar.value = 0;
@@ -171,20 +157,23 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     evtSource.onmessage = async (e) => {
       try {
         const data = JSON.parse(e.data);
+
         if (data.error) {
           evtSource.close();
           alert("Error en el servidor: " + data.error);
           progressBar.style.display = "none";
           return;
         }
+
         if (typeof data.percent !== "undefined") {
           progressBar.value = Math.min(Math.round(data.percent), 100);
         }
+
         if (data.end) {
           progressBar.value = 100;
           evtSource.close();
 
-          // 3) pedir el archivo terminado y forzar descarga
+          // 3) Descargar el archivo terminado
           const dres = await fetch(`${API_BASE}/download/${jobId}`);
           if (!dres.ok) {
             alert("No se pudo descargar el archivo: " + dres.statusText);
@@ -205,7 +194,6 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
 
     evtSource.onerror = (err) => {
       console.error("EventSource error:", err);
-      // No cerramos automáticamente para que intente reconectar (EventSource reconecta solo).
     };
 
   } catch (err) {
