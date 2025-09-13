@@ -83,7 +83,7 @@ function startDrag(e) {
 function moveDrag(e) {
   if (!dragging) return;
 
-  // NUEVO: prevenir zoom de página solo en pinch
+  // prevenir zoom de página solo en pinch
   if (e.touches && e.touches.length === 2) e.preventDefault();
 
   const [x, y] = getPos(e);
@@ -152,42 +152,40 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const progressBar = document.getElementById("progressBar");
   progressBar.value = 0;
 
-  // NUEVO: simulación inicial para que la barra suba desde el primer segundo
- let simulatedProgress = 0;
-const simulateMax = 40; // porcentaje máximo de simulación
-const simulateInterval = setInterval(() => {
-  if (simulatedProgress < simulateMax) {
-    simulatedProgress += (simulateMax - simulatedProgress) / 10;
-    progressBar.value = simulatedProgress;
-  } else {
-    clearInterval(simulateInterval);
-  }
-}, 200);
-
+  // simulación inicial
+  let simulatedProgress = 0;
+  const simulateMax = 40; // máximo % de simulación
+  const simulateInterval = setInterval(() => {
+    if (simulatedProgress < simulateMax) {
+      simulatedProgress += (simulateMax - simulatedProgress) / 10;
+      progressBar.value = simulatedProgress;
+    } else {
+      clearInterval(simulateInterval);
+    }
+  }, 200);
 
   // EventSource real para progreso del backend
   const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
   evtSource.onmessage = async (e) => {
     const data = JSON.parse(e.data);
 
-    
+    if (data.percent) {
+      progressBar.value = Math.round(data.percent);
+    }
 
-   if (data.percent) {
-    progressBar.value = Math.round(data.percent);
-  }
+    if (data.end) {
+      progressBar.value = 100;
+      evtSource.close();
 
-  if (data.end) {
-    progressBar.value = 100;
-    evtSource.close();
-
-    // descarga inmediata
-    fetch(`${API_BASE}/download/${jobId}`)
-      .then(res => res.blob())
-      .then(blob => {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "video_final.mp4";
-        a.click();
-      });
-  }
-};
+      // descarga inmediata
+      fetch(`${API_BASE}/download/${jobId}`)
+        .then(res => res.blob())
+        .then(blob => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "video_final.mp4";
+          a.click();
+        });
+    }
+  };
+});
