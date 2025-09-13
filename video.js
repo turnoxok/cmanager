@@ -155,8 +155,8 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   // NUEVO: simulación inicial para que la barra suba desde el primer segundo
   let simulatedProgress = 0;
   const simulateInterval = setInterval(() => {
-    if (simulatedProgress < 40) { // sube hasta 30% antes de recibir updates reales
-      simulatedProgress += 1;
+    if (simulatedProgress < 60) { // sube hasta 30% antes de recibir updates reales
+      simulatedProgress += (simulateMax - simulatedProgress) / 10;
       progressBar.value = simulatedProgress;
     } else {
       clearInterval(simulateInterval);
@@ -173,12 +173,13 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     }
 
     if (data.end) {
-      progressBar.value = 100;
-      evtSource.close();
+  progressBar.value = 100;
+  evtSource.close();
 
-      // descarga inmediata
-      const dres = await fetch(`${API_BASE}/download/${jobId}`);
-      const blob = await dres.blob();
+  // descarga inmediata
+  fetch(`${API_BASE}/download/${jobId}`)
+    .then(res => res.blob())
+    .then(blob => {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = "video_final.mp4";
