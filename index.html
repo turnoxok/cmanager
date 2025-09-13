@@ -4,42 +4,21 @@
   <meta charset="UTF-8">
   <title>Editor de Video</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    canvas { border: 1px solid #333; display: block; margin-bottom: 10px; }
-    #progressContainer {
-      margin-top: 15px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    #progressBar {
-      width: 300px;
-      height: 20px;
-    }
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    canvas { border: 1px solid #ccc; display: block; margin: 20px auto; max-width: 100%; }
+    #progressBar { width: 80%; height: 20px; margin-top: 15px; }
   </style>
 </head>
 <body>
-  <h2>Editor de Video</h2>
+  <h1>Editor de Video con Logo</h1>
 
-  <label>Subir video:
-    <input type="file" id="videoInput" accept="video/*">
-  </label>
-  <br><br>
-  <label>Subir logo:
-    <input type="file" id="logoInput" accept="image/*">
-  </label>
-  <br><br>
+  <input type="file" id="videoInput" accept="video/*"><br><br>
+  <input type="file" id="logoInput" accept="image/*"><br><br>
 
-  <canvas id="editorCanvas"></canvas>
+  <canvas id="editorCanvas"></canvas><br>
 
-  <button id="exportBtn">Exportar</button>
-  <button onclick="location.reload()">Resetear</button>
-  <button onclick="alert('Acá podés agregar otra acción extra')">Otro botón</button>
-
-  <div id="progressContainer">
-    <label for="progressBar">Progreso:</label>
-    <progress id="progressBar" max="100" value="0"></progress>
-  </div>
+  <button id="exportBtn">Exportar</button><br>
+  <progress id="progressBar" value="0" max="100"></progress>
 
   <script src="video.js"></script>
 </body>
