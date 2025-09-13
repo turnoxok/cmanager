@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:3000"; // ⚠️ cambiar si deployás
+const API_BASE = "https://imagenes-y-video-production.up.railway.app/convert"; // ⚠️ cambiar si deployás
 
 const canvas = document.getElementById("editorCanvas");
 const ctx = canvas.getContext("2d");
