@@ -1,59 +1,46 @@
-document.getElementById("exportBtn").addEventListener("click", async () => {
-  if (!video || !logo) return alert("Subí video y logo primero.");
-  const videoFile = document.getElementById("videoInput").files[0];
-  const logoFile = document.getElementById("logoInput").files[0];
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Editor de Video</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    canvas { border: 1px solid #333; display: block; margin-bottom: 10px; }
+    #progressContainer {
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #progressBar {
+      width: 300px;
+      height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Editor de Video</h2>
 
-  const formData = new FormData();
-  formData.append("video", videoFile);
-  formData.append("logo", logoFile);
-  formData.append("logoX", Math.round(logoX));
-  formData.append("logoY", Math.round(logoY));
-  formData.append("logoWidth", Math.round(logoW));
-  formData.append("logoHeight", Math.round(logoH));
+  <label>Subir video:
+    <input type="file" id="videoInput" accept="video/*">
+  </label>
+  <br><br>
+  <label>Subir logo:
+    <input type="file" id="logoInput" accept="image/*">
+  </label>
+  <br><br>
 
-  // barra de progreso
-  let progressBar = document.getElementById("progressBar");
-  if (!progressBar) {
-    progressBar = document.createElement("progress");
-    progressBar.id = "progressBar";
-    progressBar.max = 100;
-    progressBar.value = 0;
-    document.body.appendChild(progressBar);
-  }
+  <canvas id="editorCanvas"></canvas>
 
-  try {
-    const res = await fetch("https://imagenes-y-video-production.up.railway.app/convert", { 
-      method: "POST", 
-      body: formData 
-    });
+  <button id="exportBtn">Exportar</button>
+  <button onclick="location.reload()">Resetear</button>
+  <button onclick="alert('Acá podés agregar otra acción extra')">Otro botón</button>
 
-    if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
-    const { jobId } = await res.json();
+  <div id="progressContainer">
+    <label for="progressBar">Progreso:</label>
+    <progress id="progressBar" max="100" value="0"></progress>
+  </div>
 
-    // escuchamos el progreso en tiempo real
-    const evtSource = new EventSource(`https://imagenes-y-video-production.up.railway.app/progress/${jobId}`);
-    evtSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.end) {
-        progressBar.value = 100;
-        evtSource.close();
-
-        // descargar video final
-        fetch("https://imagenes-y-video-production.up.railway.app/convert", { 
-          method: "POST", 
-          body: formData 
-        }).then(r => r.blob()).then(blob => {
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = "video_final.mp4";
-          a.click();
-        });
-      } else if (data.percent) {
-        progressBar.value = Math.round(data.percent);
-      }
-    };
-  } catch (err) {
-    alert("Error al exportar: " + err.message);
-    console.error(err);
-  }
-});
+  <script src="video.js"></script>
+</body>
+</html>
