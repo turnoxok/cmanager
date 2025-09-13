@@ -2,107 +2,75 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Editor de Video</title>
   <style>
     body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
       margin: 0;
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background-color: #f3f4f6;
+      padding: 20px;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      min-height: 100vh;
-    }
-
-    .container {
-      background-color: #ffffff;
-      padding: 2rem;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      max-width: 500px;
-      width: 90%;
-      text-align: center;
     }
 
     h1 {
-      font-size: 1.8rem;
-      margin-bottom: 1rem;
-      color: #111827;
+      text-align: center;
+      color: #333;
+    }
+
+    #controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
 
     input[type="file"] {
-      display: none;
+      padding: 5px;
     }
 
-    label.upload-btn {
-      display: inline-block;
-      padding: 0.8rem 1.2rem;
-      background-color: #4f46e5;
-      color: #fff;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background-color 0.3s;
-      margin-top: 0.5rem;
-    }
-
-    label.upload-btn:hover {
-      background-color: #3730a3;
-    }
-
-    #exportBtn {
-      margin-top: 1rem;
-      padding: 0.8rem 1.2rem;
-      background-color: #10b981;
-      color: white;
+    button {
+      padding: 10px 20px;
+      background: #4CAF50;
       border: none;
-      border-radius: 8px;
+      color: white;
+      border-radius: 5px;
       cursor: pointer;
-      font-weight: 600;
-      transition: background-color 0.3s;
+      font-size: 16px;
     }
 
-    #exportBtn:hover {
-      background-color: #059669;
+    button:hover {
+      background: #45a049;
+    }
+
+    #editorCanvas {
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      max-width: 100%;
+      height: auto;
     }
 
     #progressBar {
       width: 100%;
-      height: 18px;
-      border-radius: 8px;
+      max-width: 600px;
+      margin-top: 20px;
+      height: 20px;
+      border-radius: 10px;
       overflow: hidden;
-      margin-top: 1rem;
-      display: none;
-    }
-
-    canvas {
-      width: 100%;
-      margin-top: 1rem;
-      border-radius: 12px;
-      background-color: #000;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Editor de Video</h1>
-
+  <h1>Editor de Video con Logo</h1>
+  <div id="controls">
     <input type="file" id="videoInput" accept="video/*">
-    <label for="videoInput" class="upload-btn">Seleccionar Video</label>
-
-    <br>
-
     <input type="file" id="logoInput" accept="image/*">
-    <label for="logoInput" class="upload-btn">Seleccionar Logo</label>
-
-    <canvas id="editorCanvas"></canvas>
-
-    <progress id="progressBar" value="0" max="100" style="width:100%; display:none;"></progress>
-
-
     <button id="exportBtn">Exportar Video</button>
   </div>
+  <canvas id="editorCanvas"></canvas>
+  <progress id="progressBar" value="0" max="100" style="display:none;"></progress>
 
   <script src="video.js"></script>
 </body>
