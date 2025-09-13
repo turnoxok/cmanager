@@ -9,6 +9,7 @@ let logoX = 0, logoY = 0, logoW = 100, logoH = 100;
 
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
+// --- DIBUJAR EDITOR ---
 function drawEditor() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (video && video.readyState >= 2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
@@ -17,7 +18,7 @@ function drawEditor() {
 }
 drawEditor();
 
-// --- carga de video ---
+// --- CARGA DE VIDEO ---
 document.getElementById("videoInput").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   video = document.createElement("video");
@@ -32,7 +33,7 @@ document.getElementById("videoInput").addEventListener("change", e => {
   });
 });
 
-// --- carga de logo ---
+// --- CARGA DE LOGO ---
 document.getElementById("logoInput").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
@@ -49,7 +50,7 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-// --- drag & drop logo ---
+// --- FUNCIONES DE DRAG & PINCH ---
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
@@ -71,6 +72,7 @@ function startDrag(e) {
   else dragTarget = null;
   dragging = true; startX = x; startY = y;
 
+  // NUEVO: detectar pinch
   if (e.touches && e.touches.length === 2) {
     lastDist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
@@ -81,6 +83,10 @@ function startDrag(e) {
 
 function moveDrag(e) {
   if (!dragging) return;
+
+  // NUEVO: evita zoom de la página
+  if (e.touches && e.touches.length === 2) e.preventDefault();
+
   const [x, y] = getPos(e);
   const dx = x - startX, dy = y - startY;
 
@@ -94,8 +100,11 @@ function moveDrag(e) {
       const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
       let newW = logoW * zoom;
       let newH = logoH * zoom;
+
+      // NUEVO: limitar tamaño del logo
       if (newW > videoW) { newW = videoW; newH = newW * (logo.height / logo.width); }
       if (newH > videoH) { newH = videoH; newW = newH * (logo.width / logo.height); }
+
       logoW = newW; logoH = newH;
       logoX = Math.min(Math.max(0, cx - logoW / 2), videoW - logoW);
       logoY = Math.min(Math.max(0, cy - logoH / 2), videoH - logoH);
@@ -107,20 +116,23 @@ function moveDrag(e) {
       logoY = Math.min(Math.max(0, logoY + dy), videoH - logoH);
     }
   }
+
   startX = x; startY = y;
 }
+
 function endDrag() { dragging = false; lastDist = null; }
 
+// --- EVENTOS ---
 canvas.addEventListener("mousedown", startDrag);
 canvas.addEventListener("mousemove", moveDrag);
 canvas.addEventListener("mouseup", endDrag);
 canvas.addEventListener("mouseleave", endDrag);
 canvas.addEventListener("touchstart", startDrag);
-canvas.addEventListener("touchmove", moveDrag);
+canvas.addEventListener("touchmove", moveDrag, { passive: false }); // NUEVO: passive false
 canvas.addEventListener("touchend", endDrag);
 canvas.addEventListener("touchcancel", endDrag);
 
-// --- exportar con barra ---
+// --- EXPORTAR CON BARRA ---
 document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video || !logo) return alert("Subí video y logo primero.");
 
@@ -139,13 +151,13 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const { jobId } = await res.json();
 
   const progressBar = document.getElementById("progressBar");
-  progressBar.value = 0;
+  progressBar.value = 0; // NUEVO: inicializa barra en 0
 
   const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
   evtSource.onmessage = async (e) => {
     const data = JSON.parse(e.data);
     if (data.percent) {
-      progressBar.value = Math.round(data.percent);
+      progressBar.value = Math.round(data.percent); // NUEVO: actualiza progresivamente
     }
     if (data.end) {
       progressBar.value = 100;
