@@ -153,41 +153,41 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   progressBar.value = 0;
 
   // NUEVO: simulación inicial para que la barra suba desde el primer segundo
-  let simulatedProgress = 0;
-  const simulateInterval = setInterval(() => {
-    if (simulatedProgress < 60) { // sube hasta 30% antes de recibir updates reales
-      simulatedProgress += (simulateMax - simulatedProgress) / 10;
-      progressBar.value = simulatedProgress;
-    } else {
-      clearInterval(simulateInterval);
-    }
-  }, 200); // 1% cada 100ms
+ let simulatedProgress = 0;
+const simulateMax = 40; // porcentaje máximo de simulación
+const simulateInterval = setInterval(() => {
+  if (simulatedProgress < simulateMax) {
+    simulatedProgress += (simulateMax - simulatedProgress) / 10;
+    progressBar.value = simulatedProgress;
+  } else {
+    clearInterval(simulateInterval);
+  }
+}, 200);
+
 
   // EventSource real para progreso del backend
   const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
   evtSource.onmessage = async (e) => {
     const data = JSON.parse(e.data);
 
-    if (data.percent) {
-      progressBar.value = Math.round(data.percent);
-    }
+    
 
-    if (data.percent) {
-  progressBar.value = Math.round(data.percent);
-}
+   if (data.percent) {
+    progressBar.value = Math.round(data.percent);
+  }
 
-if (data.end) {
-  progressBar.value = 100;
-  evtSource.close();
+  if (data.end) {
+    progressBar.value = 100;
+    evtSource.close();
 
-  // descarga inmediata
-  fetch(`${API_BASE}/download/${jobId}`)
-    .then(res => res.blob())
-    .then(blob => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "video_final.mp4";
-      a.click();
-    });
-}
-
+    // descarga inmediata
+    fetch(`${API_BASE}/download/${jobId}`)
+      .then(res => res.blob())
+      .then(blob => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "video_final.mp4";
+        a.click();
+      });
+  }
+};
