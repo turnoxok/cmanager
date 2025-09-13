@@ -172,7 +172,11 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
       progressBar.value = Math.round(data.percent);
     }
 
-    if (data.end) {
+    if (data.percent) {
+  progressBar.value = Math.round(data.percent);
+}
+
+if (data.end) {
   progressBar.value = 100;
   evtSource.close();
 
@@ -184,6 +188,6 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
       a.href = URL.createObjectURL(blob);
       a.download = "video_final.mp4";
       a.click();
-    }
-  };
-});
+    });
+}
+
