@@ -131,7 +131,7 @@ canvas.addEventListener("touchmove", moveDrag, { passive: false });
 canvas.addEventListener("touchend", endDrag);
 canvas.addEventListener("touchcancel", endDrag);
 
-// --- EXPORTAR CON BARRA ---
+// --- EXPORTAR CON BARRA CORREGIDO ---
 document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video || !logo) return alert("Subí video y logo primero.");
 
@@ -152,11 +152,13 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const progressBar = document.getElementById("progressBar");
   progressBar.value = 0;
 
-  // simulación inicial
+  // --- SIMULACIÓN INICIAL ---
   let simulatedProgress = 0;
   const simulateMax = 40; // máximo % de simulación
+  let simulationActive = true;
+
   const simulateInterval = setInterval(() => {
-    if (simulatedProgress < simulateMax) {
+    if (simulationActive && simulatedProgress < simulateMax) {
       simulatedProgress += (simulateMax - simulatedProgress) / 10;
       progressBar.value = simulatedProgress;
     } else {
@@ -164,29 +166,34 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     }
   }, 200);
 
-  // EventSource real para progreso del backend
- const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
-evtSource.onmessage = async (e) => {
-  const data = JSON.parse(e.data);
+  // --- EVENTSOURCE PARA PROGRESO REAL ---
+  const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
+  evtSource.onmessage = async (e) => {
+    const data = JSON.parse(e.data);
 
-  // Actualiza la barra solo si sube
-  if (data.percent) {
-    progressBar.value = Math.max(progressBar.value, Math.round(data.percent));
-  }
+    // Detener simulación al recibir el primer update real
+    if (simulationActive) simulationActive = false;
 
-  // Cuando el backend indica que terminó
-  if (data.end) {
-    progressBar.value = 100;
-    evtSource.close();
+    // La barra nunca retrocede
+    if (data.percent) {
+      progressBar.value = Math.max(progressBar.value, Math.round(data.percent));
+    }
 
-    // descarga inmediata
-    fetch(`${API_BASE}/download/${jobId}`)
-      .then(res => res.blob())
-      .then(blob => {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "video_final.mp4";
-        a.click();
-      });
-  }
-};
+    // Cuando termina el backend
+    if (data.end) {
+      progressBar.value = 100;
+      evtSource.close();
+
+      // descarga inmediata
+      fetch(`${API_BASE}/download/${jobId}`)
+        .then(res => res.blob())
+        .then(blob => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "video_final.mp4";
+          a.click();
+        });
+    }
+  };
+});
+
