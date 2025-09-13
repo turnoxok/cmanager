@@ -1,4 +1,4 @@
-const API_BASE = "https://imagenes-y-video-production.up.railway.app/convert"; // ⚠️ cambiar si deployás
+const API_BASE = "https://imagenes-y-video-production.up.railway.app"; // ⚠️ ajusta si cambia
 
 const canvas = document.getElementById("editorCanvas");
 const ctx = canvas.getContext("2d");
@@ -17,7 +17,7 @@ function drawEditor() {
 }
 drawEditor();
 
-// --- carga de video ---
+// --- carga video ---
 document.getElementById("videoInput").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   video = document.createElement("video");
@@ -32,7 +32,7 @@ document.getElementById("videoInput").addEventListener("change", e => {
   });
 });
 
-// --- carga de logo ---
+// --- carga logo ---
 document.getElementById("logoInput").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
@@ -49,7 +49,7 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-// --- drag & drop logo ---
+// --- drag logo ---
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
@@ -120,7 +120,7 @@ canvas.addEventListener("touchmove", moveDrag);
 canvas.addEventListener("touchend", endDrag);
 canvas.addEventListener("touchcancel", endDrag);
 
-// --- exportar con barra ---
+// --- exportar ---
 document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video || !logo) return alert("Subí video y logo primero.");
 
