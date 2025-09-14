@@ -152,16 +152,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const progressBar = document.getElementById("progressBar");
   progressBar.value = 0;
 
-  // NUEVO: simulación inicial para que la barra suba desde el primer segundo
-  let simulatedProgress = 0;
-  const simulateInterval = setInterval(() => {
-    if (simulatedProgress < 40) { // sube hasta 30% antes de recibir updates reales
-      simulatedProgress += 1;
-      progressBar.value = simulatedProgress;
-    } else {
-      clearInterval(simulateInterval);
-    }
-  }, 300); // 1% cada 100ms
+  
 
   // EventSource real para progreso del backend
   const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
