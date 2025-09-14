@@ -1,88 +1,97 @@
-// Asegurarse de que todo se ejecute después de que FFmpeg esté disponible
-window.onload = async () => {
-  const { createFFmpeg, fetchFile } = FFmpeg; // <-- FFmpeg ya está definido globalmente
-  const ffmpeg = createFFmpeg({ log: true });
+const canvas = document.getElementById("editorCanvas");
+const ctx = canvas.getContext("2d");
+const videoInput = document.getElementById("videoInput");
+const logoInput = document.getElementById("logoInput");
+const recordBtn = document.getElementById("recordBtn");
 
-  await ffmpeg.load();
+let videoEl = null;
+let logoImg = null;
 
-  const videoInput = document.getElementById("videoInput");
-  const logoInput = document.getElementById("logoInput");
-  const exportBtn = document.getElementById("exportBtn");
-  const canvas = document.getElementById("editorCanvas");
-  const ctx = canvas.getContext("2d");
+// Logo interactividad
+let logoX = 800, logoY = 1150, logoW = 200, logoH = 200;
+let dragging = false, dragOffsetX = 0, dragOffsetY = 0;
 
-  let videoEl = null;
-  let logoImg = null;
+videoInput.addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  videoEl = document.createElement("video");
+  videoEl.src = URL.createObjectURL(file);
+  videoEl.loop = true;
+  videoEl.muted = true;
+  videoEl.play();
+});
 
-  videoInput.addEventListener("change", e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    videoEl = document.createElement("video");
-    videoEl.src = URL.createObjectURL(file);
-    videoEl.loop = true;
-    videoEl.muted = true;
-    videoEl.play();
-    videoEl.onloadedmetadata = () => {
-      canvas.width = 1080;
-      canvas.height = 1350;
-      drawCanvas();
-    };
-  });
+logoInput.addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    logoImg = new Image();
+    logoImg.src = ev.target.result;
+    logoImg.onload = () => drawFrame();
+  };
+  reader.readAsDataURL(file);
+});
 
-  logoInput.addEventListener("change", e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      logoImg = new Image();
-      logoImg.src = ev.target.result;
-      logoImg.onload = drawCanvas;
-    };
-    reader.readAsDataURL(file);
-  });
-
-  function drawCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (videoEl) {
-      // Mantener aspecto original
-      const ratio = videoEl.videoWidth / videoEl.videoHeight;
-      let w = canvas.width;
-      let h = w / ratio;
-      if (h > canvas.height) {
-        h = canvas.height;
-        w = h * ratio;
-      }
-      ctx.drawImage(videoEl, 0, 0, w, h);
-    }
-    if (logoImg) {
-      const lw = 200; // ejemplo tamaño logo
-      const lh = lw * (logoImg.height / logoImg.width);
-      ctx.drawImage(logoImg, canvas.width - lw - 10, canvas.height - lh - 10, lw, lh);
-    }
-    requestAnimationFrame(drawCanvas);
+// Drag logo
+canvas.addEventListener("mousedown", e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if (x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) {
+    dragging = true;
+    dragOffsetX = x - logoX;
+    dragOffsetY = y - logoY;
   }
+});
 
-  exportBtn.addEventListener("click", async () => {
-    if (!videoEl || !logoImg) return alert("Subí video y logo primero.");
+canvas.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  logoX = Math.min(Math.max(0, x - dragOffsetX), canvas.width - logoW);
+  logoY = Math.min(Math.max(0, y - dragOffsetY), canvas.height - logoH);
+});
 
-    // Guardar archivos en ffmpeg.wasm
-    ffmpeg.FS("writeFile", "video.mp4", await fetchFile(videoInput.files[0]));
-    ffmpeg.FS("writeFile", "logo.png", await fetchFile(logoInput.files[0]));
+canvas.addEventListener("mouseup", () => dragging = false);
+canvas.addEventListener("mouseleave", () => dragging = false);
 
-    // Exportar video con overlay (1080x1350)
-    await ffmpeg.run(
-      "-i", "video.mp4",
-      "-i", "logo.png",
-      "-filter_complex", "overlay=W-w-10:H-h-10",
-      "-vf", "scale=1080:1350:force_original_aspect_ratio=decrease,pad=1080:1350:(ow-iw)/2:(oh-ih)/2",
-      "output.mp4"
-    );
+// Dibuja video + logo
+function drawFrame() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (videoEl) {
+    const ratio = videoEl.videoWidth / videoEl.videoHeight;
+    let w = canvas.width;
+    let h = w / ratio;
+    if (h > canvas.height) {
+      h = canvas.height;
+      w = h * ratio;
+    }
+    ctx.drawImage(videoEl, (canvas.width - w)/2, (canvas.height - h)/2, w, h);
+  }
+  if (logoImg) ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+  requestAnimationFrame(drawFrame);
+}
 
-    const data = ffmpeg.FS("readFile", "output.mp4");
-    const url = URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" }));
+// Grabar canvas en video
+recordBtn.addEventListener("click", async () => {
+  const stream = canvas.captureStream(30); // 30 fps
+  const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+  const chunks = [];
+
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = e => {
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "video_final.mp4";
+    a.download = "video_logo.webm";
     a.click();
-  });
-};
+  };
+
+  recorder.start();
+  alert("Grabando 5 segundos...");
+  await new Promise(r => setTimeout(r, 5000));
+  recorder.stop();
+});
