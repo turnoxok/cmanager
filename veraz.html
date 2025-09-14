@@ -9,6 +9,9 @@
     input, button { padding: 8px; font-size: 16px; margin-top: 5px; }
     #resultado { margin-top: 20px; white-space: pre-wrap; }
     .error { color: red; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
   </style>
 </head>
 <body>
@@ -25,11 +28,10 @@
     const resultado = document.getElementById('resultado');
 
     boton.addEventListener('click', () => {
-      // Tomar CUIT y limpiar guiones/espacios
+      // Limpiar CUIT: quitar guiones y espacios
       const cuitRaw = document.getElementById('cuit').value.trim();
       const cuit = cuitRaw.replace(/[^0-9]/g, '');
 
-      // Validar que tenga 11 dígitos
       if (cuit.length !== 11) {
         resultado.innerHTML = '<span class="error">CUIT inválido. Debe tener 11 dígitos numéricos.</span>';
         return;
@@ -37,26 +39,31 @@
 
       resultado.textContent = 'Consultando...';
 
-      // Llamada a la API del BCRA
       fetch(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/${cuit}`)
         .then(response => {
           if (!response.ok) throw new Error('Error en la consulta');
           return response.json();
         })
         .then(data => {
-          if (!data || data.length === 0) {
+          // Revisar si existe el array de deudas
+          const deudas = data?.Deudas || []; // Ajustar según la estructura real
+          if (deudas.length === 0) {
             resultado.textContent = 'No hay registros de deudas para este CUIT.';
             return;
           }
 
-          let texto = 'Resultados de la consulta:\n\n';
-          data.forEach(item => {
-            texto += `Entidad: ${item.Entidad}\n`;
-            texto += `Monto Total: ${item.MontoTotal}\n`;
-            texto += `Días de atraso: ${item.DiasAtraso}\n`;
-            texto += `Estado: ${item.Estado}\n\n`;
+          // Crear tabla de resultados
+          let tabla = '<table><tr><th>Entidad</th><th>Monto Total</th><th>Días de atraso</th><th>Estado</th></tr>';
+          deudas.forEach(item => {
+            tabla += `<tr>
+                        <td>${item.Entidad || '-'}</td>
+                        <td>${item.MontoTotal || '-'}</td>
+                        <td>${item.DiasAtraso || '-'}</td>
+                        <td>${item.Estado || '-'}</td>
+                      </tr>`;
           });
-          resultado.textContent = texto;
+          tabla += '</table>';
+          resultado.innerHTML = tabla;
         })
         .catch(error => {
           console.error(error);
