@@ -1,210 +1,204 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Editor Video + Logo</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 20px;
-      background: #121212;
-      color: #fff;
-    }
-    #editorCanvas {
-      border: 2px solid #444;
-      border-radius: 12px;
-      max-width: 100%;
-      margin: 20px auto;
-      display: block;
-      touch-action: none;
-      background: black;
-    }
-    progress {
-      width: 80%;
-      height: 20px;
-      margin-top: 10px;
-    }
-    button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      border-radius: 6px;
-      border: none;
-      background: #007bff;
-      color: #fff;
-    }
-    button:disabled {
-      background: #555;
-      cursor: not-allowed;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Editor Video + Logo</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #121212;
+    color: #f5f5f5;
+    margin: 0;
+    padding: 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 { margin-bottom: 20px; }
+  input[type="file"], button {
+    margin: 10px 0;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  button { background: linear-gradient(135deg,#4CAF50,#2E8B57); color: #fff; }
+  button:hover { opacity: 0.9; }
+  canvas {
+    border: 2px solid #444;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    touch-action: none; /* permite pinch/drag solo en canvas */
+    margin: 20px 0;
+    max-width: 100%;
+  }
+  progress { width: 100%; margin: 10px 0; }
+  a { color: #4CAF50; font-weight: bold; margin-top: 10px; display: none; }
+</style>
 </head>
 <body>
-  <h1>Editor de Video + Logo</h1>
+<h1>Editor Video + Logo Interactivo</h1>
 
-  <input type="file" id="videoInput" accept="video/*"><br>
-  <input type="file" id="logoInput" accept="image/png"><br>
+<input type="file" id="videoInput" accept="video/*"><br>
+<input type="file" id="logoInput" accept="image/png"><br>
+<button id="exportBtn">Exportar Video</button>
+<progress id="progressBar" value="0" max="100"></progress>
+<a id="downloadLink" download="video_final.mp4">⬇️ Descargar Video</a>
+<canvas id="editorCanvas"></canvas>
 
-  <canvas id="editorCanvas" width="1080" height="1350"></canvas><br>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
+<script>
+const { createFFmpeg, fetchFile } = FFmpeg;
+const ffmpeg = createFFmpeg({ log: true });
 
-  <button id="exportBtn" disabled>Exportar</button><br>
-  <progress id="progressBar" value="0" max="100"></progress>
+const canvas = document.getElementById("editorCanvas");
+const ctx = canvas.getContext("2d");
 
-  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
-  <script>
-    const { createFFmpeg, fetchFile } = FFmpeg;
-    const ffmpeg = createFFmpeg({
-      log: true,
-      corePath: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.6/dist/ffmpeg-core.js"
-    });
+let video = null, logo = null;
+let videoW=0, videoH=0, logoW=100, logoH=100, logoX=50, logoY=50;
 
-    const canvas = document.getElementById("editorCanvas");
-    const ctx = canvas.getContext("2d");
-    const videoInput = document.getElementById("videoInput");
-    const logoInput = document.getElementById("logoInput");
-    const exportBtn = document.getElementById("exportBtn");
-    const progressBar = document.getElementById("progressBar");
+let dragging=false, dragTarget=null, startX=0, startY=0, lastDist=null;
 
-    let video = null, logo = null;
-    let logoX = 800, logoY = 1100, logoW = 200, logoH = 200;
-    let dragging = false, startX = 0, startY = 0, lastDist = null;
+// --- dibujar canvas ---
+function drawEditor() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(video && video.readyState>=2) ctx.drawImage(video,0,0,videoW,videoH);
+  if(logo) ctx.drawImage(logo, logoX, logoY, logoW, logoH);
+  requestAnimationFrame(drawEditor);
+}
+drawEditor();
 
-    // --- Dibuja el editor ---
-    function drawEditor() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (video && video.readyState >= 2) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      }
-      if (logo) {
-        ctx.drawImage(logo, logoX, logoY, logoW, logoH);
-      }
-      requestAnimationFrame(drawEditor);
+// --- cargar video ---
+document.getElementById("videoInput").addEventListener("change", e=>{
+  const file=e.target.files[0]; if(!file) return;
+  video=document.createElement("video");
+  video.src=URL.createObjectURL(file);
+  video.loop=true; video.muted=true; video.play();
+  video.addEventListener("loadedmetadata", ()=>{
+    const maxW=1080, maxH=1350;
+    const ratio=Math.min(maxW/video.videoWidth,maxH/video.videoHeight,1);
+    videoW=Math.round(video.videoWidth*ratio);
+    videoH=Math.round(video.videoHeight*ratio);
+    canvas.width=videoW;
+    canvas.height=videoH;
+    logoX=videoW-logoW-20; logoY=videoH-logoH-20;
+  });
+});
+
+// --- cargar logo ---
+document.getElementById("logoInput").addEventListener("change", e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    logo=new Image();
+    logo.onload=()=>{ logoH=logoW*(logo.height/logo.width); };
+    logo.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+// --- drag & pinch ---
+function getPos(e){
+  const rect=canvas.getBoundingClientRect();
+  if(e.touches){
+    return [(e.touches[0].clientX-rect.left)*(canvas.width/rect.width),(e.touches[0].clientY-rect.top)*(canvas.height/rect.height)];
+  }else return [e.clientX-rect.left*(canvas.width/rect.width), e.clientY-rect.top*(canvas.height/rect.height)];
+}
+
+function startDrag(e){
+  const [x,y]=getPos(e);
+  if(logo && x>=logoX && x<=logoX+logoW && y>=logoY && y<=logoY+logoH) dragTarget="logo";
+  else dragTarget=null;
+  dragging=true; startX=x; startY=y;
+
+  if(e.touches && e.touches.length===2){
+    lastDist=Math.hypot(
+      e.touches[0].clientX-e.touches[1].clientX,
+      e.touches[0].clientY-e.touches[1].clientY
+    );
+  }
+}
+
+function moveDrag(e){
+  if(!dragging) return;
+  const [x,y]=getPos(e);
+  const dx=x-startX, dy=y-startY;
+
+  if(e.touches && e.touches.length===2 && lastDist){
+    const dist=Math.hypot(
+      e.touches[0].clientX-e.touches[1].clientX,
+      e.touches[0].clientY-e.touches[1].clientY
+    );
+    const zoom=dist/lastDist;
+    if(dragTarget==="logo"){
+      const cx=logoX+logoW/2, cy=logoY+logoH/2;
+      logoW*=zoom; logoH*=zoom;
+      // límite para que no salga de canvas
+      if(logoW>videoW-10) logoW=videoW-10; 
+      if(logoH>videoH-10) logoH=videoH-10;
+      logoX=cx-logoW/2; logoY=cy-logoH/2;
+      if(logoX<0) logoX=0; if(logoY<0) logoY=0;
+      if(logoX+logoW>videoW) logoX=videoW-logoW;
+      if(logoY+logoH>videoH) logoY=videoH-logoH;
     }
-    drawEditor();
-
-    // --- Cargar video ---
-    videoInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      video = document.createElement("video");
-      video.src = URL.createObjectURL(file);
-      video.loop = true;
-      video.muted = true;
-      video.play();
-      exportBtn.disabled = false;
-    });
-
-    // --- Cargar logo ---
-    logoInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        logo = new Image();
-        logo.src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    // --- Drag & pinch ---
-    function getPos(e, i = 0) {
-      const rect = canvas.getBoundingClientRect();
-      return [
-        (e.touches ? e.touches[i].clientX : e.clientX) - rect.left,
-        (e.touches ? e.touches[i].clientY : e.clientY) - rect.top
-      ].map((v, j) => v * (j === 0 ? canvas.width / rect.width : canvas.height / rect.height));
+    lastDist=dist;
+  }else{
+    if(dragTarget==="logo"){
+      logoX+=dx; logoY+=dy;
+      if(logoX<0) logoX=0; if(logoY<0) logoY=0;
+      if(logoX+logoW>videoW) logoX=videoW-logoW;
+      if(logoY+logoH>videoH) logoY=videoH-logoH;
     }
+  }
+  startX=x; startY=y;
+}
 
-    function startDrag(e) {
-      e.preventDefault();
-      if (e.touches && e.touches.length === 2) {
-        lastDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        return;
-      }
-      const [x, y] = getPos(e);
-      if (x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) {
-        dragging = true; startX = x; startY = y;
-      }
-    }
+function endDrag(){ dragging=false; lastDist=null; }
 
-    function moveDrag(e) {
-      if (e.touches && e.touches.length === 2 && lastDist) {
-        const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        const zoom = dist / lastDist;
-        const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
-        logoW *= zoom; logoH *= zoom;
-        logoX = Math.min(Math.max(0, cx - logoW / 2), canvas.width - logoW);
-        logoY = Math.min(Math.max(0, cy - logoH / 2), canvas.height - logoH);
-        lastDist = dist;
-        return;
-      }
-      if (!dragging) return;
-      const [x, y] = getPos(e);
-      const dx = x - startX, dy = y - startY;
-      logoX = Math.min(Math.max(0, logoX + dx), canvas.width - logoW);
-      logoY = Math.min(Math.max(0, logoY + dy), canvas.height - logoH);
-      startX = x; startY = y;
-    }
+canvas.addEventListener("mousedown",startDrag);
+canvas.addEventListener("mousemove",moveDrag);
+canvas.addEventListener("mouseup",endDrag);
+canvas.addEventListener("mouseleave",endDrag);
+canvas.addEventListener("touchstart",startDrag);
+canvas.addEventListener("touchmove",moveDrag,{passive:false});
+canvas.addEventListener("touchend",endDrag);
+canvas.addEventListener("touchcancel",endDrag);
 
-    function endDrag() {
-      dragging = false;
-      lastDist = null;
-    }
+// --- exportar ---
+document.getElementById("exportBtn").addEventListener("click", async ()=>{
+  if(!video || !logo) return alert("Subí video y logo primero.");
 
-    canvas.addEventListener("mousedown", startDrag);
-    canvas.addEventListener("mousemove", moveDrag);
-    canvas.addEventListener("mouseup", endDrag);
-    canvas.addEventListener("mouseleave", endDrag);
+  const videoFile=document.getElementById("videoInput").files[0];
+  const logoFile=document.getElementById("logoInput").files[0];
 
-    canvas.addEventListener("touchstart", startDrag, { passive: false });
-    canvas.addEventListener("touchmove", moveDrag, { passive: false });
-    canvas.addEventListener("touchend", endDrag);
-    canvas.addEventListener("touchcancel", endDrag);
+  const downloadLink=document.getElementById("downloadLink");
+  const progressBar=document.getElementById("progressBar");
 
-    // --- Exportar ---
-    exportBtn.addEventListener("click", async () => {
-      if (!videoInput.files[0]) return alert("Subí un video.");
-      if (!logoInput.files[0]) return alert("Subí un logo PNG.");
+  progressBar.value=0;
+  if(!ffmpeg.isLoaded()) await ffmpeg.load();
 
-      exportBtn.disabled = true;
-      progressBar.value = 10;
+  ffmpeg.FS("writeFile","input.mp4",await fetchFile(videoFile));
+  ffmpeg.FS("writeFile","logo.png",await fetchFile(logoFile));
 
-      if (!ffmpeg.isLoaded()) {
-        await ffmpeg.load();
-      }
+  // escalar video a 1080x1350 max y overlay logo
+  await ffmpeg.run(
+    "-i","input.mp4",
+    "-i","logo.png",
+    "-filter_complex",
+    `scale=1080:1350:force_original_aspect_ratio=decrease,pad=1080:1350:(ow-iw)/2:(oh-ih)/2[v];[v][1:v]overlay=${Math.round(logoX)}:${Math.round(logoY)}`,
+    "-c:a","copy",
+    "output.mp4"
+  );
 
-      ffmpeg.FS("writeFile", "input.mp4", await fetchFile(videoInput.files[0]));
-      ffmpeg.FS("writeFile", "logo.png", await fetchFile(logoInput.files[0]));
-
-      await ffmpeg.run(
-        "-i", "input.mp4",
-        "-i", "logo.png",
-        "-filter_complex",
-        `scale=1080:1350,overlay=${Math.round(logoX)}:${Math.round(logoY)}`,
-        "-c:a", "aac",
-        "output.mp4"
-      );
-
-      const data = ffmpeg.FS("readFile", "output.mp4");
-      const url = URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" }));
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "video_final.mp4";
-      a.click();
-
-      progressBar.value = 100;
-      exportBtn.disabled = false;
-    });
-  </script>
+  const data=ffmpeg.FS("readFile","output.mp4");
+  const url=URL.createObjectURL(new Blob([data.buffer],{type:"video/mp4"}));
+  downloadLink.href=url; downloadLink.style.display="inline-block";
+  downloadLink.click();
+});
+</script>
 </body>
 </html>
+
