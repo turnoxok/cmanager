@@ -4,19 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Editor Video + Logo</title>
+<link rel="stylesheet" href="video2.css">
 </head>
 <body>
+<h1>Editor de Video + Logo</h1>
 
 <input type="file" id="videoInput" accept="video/*">
 <input type="file" id="logoInput" accept="image/png">
-<canvas id="editorCanvas" width="1080" height="1350" style="border:1px solid #ccc;"></canvas>
-<button id="exportBtn">Exportar Video</button>
+<button id="recordBtn">🎬 Grabar Video</button>
+<canvas id="editorCanvas" width="1080" height="1350" style="border:1px solid #333; background:#000;"></canvas>
 
-<!-- Cargar UMD de FFmpeg (global) -->
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.umd.min.js"></script>
-
-<!-- Tu JS personalizado -->
 <script src="video2.js"></script>
-
 </body>
 </html>
