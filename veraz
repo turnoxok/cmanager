@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consulta BCRA por CUIT</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input, button { padding: 8px; font-size: 16px; }
+    #resultado { margin-top: 20px; white-space: pre-wrap; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+
+  <h2>Consulta de CUIT en BCRA</h2>
+  <label for="cuit">Ingrese su CUIT:</label>
+  <input type="text" id="cuit" placeholder="20-12345678-9">
+  <button id="consultar">Consultar</button>
+
+  <div id="resultado"></div>
+
+  <script>
+    const boton = document.getElementById('consultar');
+    const resultado = document.getElementById('resultado');
+
+    // Función para validar formato de CUIT
+    function validarCUIT(cuit) {
+      const regex = /^\d{2}-\d{8}-\d{1}$/;
+      return regex.test(cuit);
+    }
+
+    boton.addEventListener('click', () => {
+      const cuit = document.getElementById('cuit').value.trim();
+
+      if (!validarCUIT(cuit)) {
+        resultado.innerHTML = '<span class="error">CUIT inválido. Debe ser formato XX-XXXXXXXX-X</span>';
+        return;
+      }
+
+      resultado.textContent = 'Consultando...';
+
+      // Llamada a la API del BCRA
+      fetch(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/${cuit}`)
+        .then(response => {
+          if (!response.ok) throw new Error('Error en la consulta');
+          return response.json();
+        })
+        .then(data => {
+          if (data.length === 0) {
+            resultado.textContent = 'No hay registros de deudas para este CUIT.';
+          } else {
+            // Mostrar información relevante
+            let texto = 'Resultados de la consulta:\n\n';
+            data.forEach((item, i) => {
+              texto += `Entidad: ${item.Entidad}\n`;
+              texto += `Monto Total: ${item.MontoTotal}\n`;
+              texto += `Días de atraso: ${item.DiasAtraso}\n`;
+              texto += `Estado: ${item.Estado}\n\n`;
+            });
+            resultado.textContent = texto;
+          }
+        })
+        .catch(error => {
+          console.error(error);
+          resultado.innerHTML = '<span class="error">Error al consultar el BCRA. Intente nuevamente.</span>';
+        });
+    });
+  </script>
+
+</body>
+</html>
