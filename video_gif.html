@@ -128,17 +128,37 @@ document.getElementById("overlayInput").addEventListener("change", e=>{
   if(file.type.startsWith("video/")) {
     overlay = document.createElement("video");
     overlay.src=url;
-    overlay.loop=true; overlay.muted=true; overlay.play();
+    overlay.loop=true; // 🔁 repetir
+    overlay.muted=true;
+    overlay.play();
     overlay.addEventListener("loadedmetadata", ()=>{
-      overlayW=overlay.videoWidth/4; overlayH=overlay.videoHeight/4;
-      overlayX=videoW-overlayW-10; overlayY=videoH-overlayH-10;
+      overlayW=overlay.videoWidth/4;
+      overlayH=overlay.videoHeight/4;
+      overlayX=videoW-overlayW-10;
+      overlayY=videoH-overlayH-10;
     });
   } else {
+    // Para GIF: usar Image normal pero actualizar continuamente
     overlay = new Image();
-    overlay.src=url;
-    overlay.onload=()=>{
-      overlayW=overlay.width/4; overlayH=overlay.height/4;
-      overlayX=videoW-overlayW-10; overlayY=videoH-overlayH-10;
+    overlay.src = url;
+
+    // canvas intermedio para GIF animado
+    const gifCanvas = document.createElement("canvas");
+    const gifCtx = gifCanvas.getContext("2d");
+
+    overlay.onload = () => {
+      overlayW = overlay.width/4;
+      overlayH = overlay.height/4;
+      overlayX = videoW-overlayW-10;
+      overlayY = videoH-overlayH-10;
+
+      // Repetir dibujado
+      const drawGIF = () => {
+        gifCtx.clearRect(0,0,gifCanvas.width,gifCanvas.height);
+        gifCtx.drawImage(overlay, 0,0);
+        requestAnimationFrame(drawGIF);
+      };
+      drawGIF();
     };
   }
 });
