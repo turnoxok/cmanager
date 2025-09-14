@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor Video + Overlay</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #121212;
+    color: #f5f5f5;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  input[type="file"] {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background-color: #1e1e1e;
+    color: #f5f5f5;
+    cursor: pointer;
+    font-size: 14px;
+    margin: 5px 0;
+    width: 250px;
+    max-width: 90%;
+  }
+  input[type="file"]::file-selector-button {
+    background-color: #4CAF50;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  button {
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #4CAF50, #2E8B57);
+    border: none;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-top: 15px;
+  }
+  #editorCanvas {
+    border: 2px solid #444;
+    border-radius: 12px;
+    max-width: 100%;
+    height: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    margin: 20px 0;
+    touch-action: none; /* gestos solo en canvas */
+  }
+  #progressBar {
+    width: 80%;
+    max-width: 600px;
+    height: 20px;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 20px;
+    appearance: none;
+    background-color: #333;
+  }
+  #progressBar::-webkit-progress-value { background: linear-gradient(90deg,#4CAF50,#8BC34A);}
+</style>
+</head>
+<body>
+<h1>Editor de Video + Overlay GIF/Video</h1>
+
+<input type="file" id="videoInput" accept="video/*"><br>
+<input type="file" id="overlayInput" accept="image/gif,video/*"><br>
+
+<canvas id="editorCanvas"></canvas><br>
+
+<button id="exportBtn">Exportar</button><br>
+<progress id="progressBar" value="0" max="100"></progress>
+
+<script>
+const API_BASE = "https://imagenes-y-video-production.up.railway.app";
+
+const canvas = document.getElementById("editorCanvas");
+const ctx = canvas.getContext("2d");
+
+let video = null;
+let overlay = null;
+
+let videoX=0, videoY=0, videoW=0, videoH=0;
+let overlayX=0, overlayY=0, overlayW=100, overlayH=100;
+
+let dragging=false, dragTarget=null, startX=0, startY=0, lastDist=null;
+
+// --- dibujar editor ---
+function drawEditor() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(video && video.readyState>=2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
+  if(overlay){
+    ctx.drawImage(overlay, overlayX, overlayY, overlayW, overlayH);
+  }
+  requestAnimationFrame(drawEditor);
+}
+drawEditor();
+
+// --- carga video ---
+document.getElementById("videoInput").addEventListener("change", e=>{
+  const file=e.target.files[0]; if(!file) return;
+  video = document.createElement("video");
+  video.src = URL.createObjectURL(file);
+  video.loop=true; video.muted=true; video.play();
+  video.addEventListener("loadedmetadata", ()=>{
+    videoW = video.videoWidth; videoH = video.videoHeight;
+    canvas.width=videoW; canvas.height=videoH;
+    videoX=0; videoY=0;
+    overlayX=videoW-150; overlayY=videoH-150; overlayW=100; overlayH=100;
+  });
+});
+
+// --- carga overlay ---
+document.getElementById("overlayInput").addEventListener("change", e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const url = URL.createObjectURL(file);
+
+  if(file.type.startsWith("video/")) {
+    overlay = document.createElement("video");
+    overlay.src=url;
+    overlay.loop=true; overlay.muted=true; overlay.play();
+    overlay.addEventListener("loadedmetadata", ()=>{
+      overlayW=overlay.videoWidth/4; overlayH=overlay.videoHeight/4;
+      overlayX=videoW-overlayW-10; overlayY=videoH-overlayH-10;
+    });
+  } else {
+    overlay = new Image();
+    overlay.src=url;
+    overlay.onload=()=>{
+      overlayW=overlay.width/4; overlayH=overlay.height/4;
+      overlayX=videoW-overlayW-10; overlayY=videoH-overlayH-10;
+    };
+  }
+});
+
+// --- drag & pinch ---
+function getPos(e){
+  const rect=canvas.getBoundingClientRect();
+  if(e.touches){
+    return [(e.touches[0].clientX-rect.left)*(canvas.width/rect.width),
+            (e.touches[0].clientY-rect.top)*(canvas.height/rect.height)];
+  }else{
+    return [(e.clientX-rect.left)*(canvas.width/rect.width),
+            (e.clientY-rect.top)*(canvas.height/rect.height)];
+  }
+}
+function startDrag(e){
+  const [x,y]=getPos(e);
+  if(overlay && x>=overlayX && x<=overlayX+overlayW && y>=overlayY && y<=overlayY+overlayH) dragTarget="overlay";
+  else dragTarget=null;
+  dragging=true; startX=x; startY=y;
+  if(e.touches && e.touches.length===2){
+    lastDist=Math.hypot(
+      e.touches[0].clientX-e.touches[1].clientX,
+      e.touches[0].clientY-e.touches[1].clientY
+    );
+  }
+}
+function moveDrag(e){
+  if(!dragging) return;
+  const [x,y]=getPos(e);
+  const dx=x-startX, dy=y-startY;
+  if(e.touches && e.touches.length===2 && lastDist){
+    const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                          e.touches[0].clientY-e.touches[1].clientY);
+    const zoom=dist/lastDist;
+    if(dragTarget==="overlay"){
+      const cx=overlayX+overlayW/2, cy=overlayY+overlayH/2;
+      let newW=overlayW*zoom, newH=overlayH*zoom;
+      if(newW>videoW){newW=videoW; newH=newW*(overlay.height/overlay.width);}
+      if(newH>videoH){newH=videoH; newW=newH*(overlay.width/overlay.height);}
+      overlayW=newW; overlayH=newH;
+      overlayX=Math.min(Math.max(0,cx-overlayW/2),videoW-overlayW);
+      overlayY=Math.min(Math.max(0,cy-overlayH/2),videoH-overlayH);
+    }
+    lastDist=dist;
+  }else{
+    if(dragTarget==="overlay"){
+      overlayX=Math.min(Math.max(0,overlayX+dx),videoW-overlayW);
+      overlayY=Math.min(Math.max(0,overlayY+dy),videoH-overlayH);
+    }
+  }
+  startX=x; startY=y;
+}
+function endDrag(){dragging=false; lastDist=null;}
+
+canvas.addEventListener("mousedown",startDrag);
+canvas.addEventListener("mousemove",moveDrag);
+canvas.addEventListener("mouseup",endDrag);
+canvas.addEventListener("mouseleave",endDrag);
+canvas.addEventListener("touchstart",startDrag);
+canvas.addEventListener("touchmove",moveDrag,{passive:false});
+canvas.addEventListener("touchend",endDrag);
+canvas.addEventListener("touchcancel",endDrag);
+
+// --- exportar ---
+document.getElementById("exportBtn").addEventListener("click", async ()=>{
+  if(!video || !overlay) return alert("Subí video y overlay primero.");
+
+  const videoFile=document.getElementById("videoInput").files[0];
+  const overlayFile=document.getElementById("overlayInput").files[0];
+
+  const formData=new FormData();
+  formData.append("video",videoFile);
+  formData.append("logo",overlayFile); // backend recibe "logo" mismo nombre
+  formData.append("logoX",Math.round(overlayX));
+  formData.append("logoY",Math.round(overlayY));
+  formData.append("logoWidth",Math.round(overlayW));
+  formData.append("logoHeight",Math.round(overlayH));
+
+  const res=await fetch(`${API_BASE}/convert`,{method:"POST",body:formData});
+  const {jobId}=await res.json();
+
+  const progressBar=document.getElementById("progressBar");
+  progressBar.value=0;
+
+  const evtSource=new EventSource(`${API_BASE}/progress/${jobId}`);
+  evtSource.onmessage=async (e)=>{
+    const data=JSON.parse(e.data);
+    if(data.percent) progressBar.value=Math.round(data.percent);
+    if(data.end){
+      progressBar.value=100;
+      evtSource.close();
+      const dres=await fetch(`${API_BASE}/download/${jobId}`);
+      const blob=await dres.blob();
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download="video_final.mp4";
+      a.click();
+    }
+  };
+});
+</script>
+</body>
+</html>
