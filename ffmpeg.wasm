@@ -1,0 +1,25 @@
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script>
+  const { createFFmpeg, fetchFile } = FFmpeg;
+  const ffmpeg = createFFmpeg({ log: true });
+
+  async function compressVideo(file) {
+    if (!ffmpeg.isLoaded()) await ffmpeg.load();
+
+    // cargamos archivo en memoria
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+
+    // comando de compresión: 720p + bitrate limitado
+    await ffmpeg.run(
+      '-i', 'input.mp4',
+      '-vf', 'scale=-2:720', // mantiene aspecto, máx 720p
+      '-b:v', '1500k',       // bitrate video
+      '-b:a', '128k',        // bitrate audio
+      'output.mp4'
+    );
+
+    // sacamos resultado
+    const data = ffmpeg.FS('readFile', 'output.mp4');
+    return new File([data.buffer], 'compressed.mp4', { type: 'video/mp4' });
+  }
+</script>
