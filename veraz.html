@@ -1,76 +1,93 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Consulta de CUIT en BCRA</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    input, button { padding: 8px; font-size: 16px; margin-top: 5px; }
-    #resultado { margin-top: 20px; white-space: pre-wrap; }
-    .error { color: red; }
-    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solicitud de Informe Comercial</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  input, button { padding: 10px; margin: 5px; width: 100%; max-width: 400px; }
+  #uploadArea { border: 2px dashed #aaa; padding: 20px; margin-top: 20px; text-align: center; }
+  #uploadArea.dragover { border-color: #333; }
+  .resultado { margin-top: 20px; }
+</style>
 </head>
 <body>
 
-  <h2>Consulta de CUIT en BCRA</h2>
-  <label for="cuit">Ingrese su CUIT:</label><br>
-  <input type="text" id="cuit" placeholder="20-12345678-9">
-  <button id="consultar">Consultar</button>
+<h2>Solicitar tu informe comercial</h2>
+<p>Ingresa tu CUIT/CUIL (solo números):</p>
+<input type="text" id="cuit" placeholder="Ej: 20123456789" maxlength="11">
 
-  <div id="resultado"></div>
+<button id="solicitarBtn">Solicitar mi informe</button>
 
-  <script>
-    const boton = document.getElementById('consultar');
-    const resultado = document.getElementById('resultado');
+<div id="uploadArea">
+  <p>Arrastrá tu PDF o imagen del informe aquí, o hacé clic para seleccionar.</p>
+  <input type="file" id="fileInput" style="display:none">
+</div>
 
-    boton.addEventListener('click', () => {
-      // Limpiar CUIT: quitar guiones y espacios
-      const cuitRaw = document.getElementById('cuit').value.trim();
-      const cuit = cuitRaw.replace(/[^0-9]/g, '');
+<div id="resultado" class="resultado"></div>
 
-      if (cuit.length !== 11) {
-        resultado.innerHTML = '<span class="error">CUIT inválido. Debe tener 11 dígitos numéricos.</span>';
-        return;
-      }
+<script>
+// Validar CUIT
+function validarCUIT(cuit) {
+  return cuit.length === 11 && !isNaN(cuit);
+}
 
-      resultado.textContent = 'Consultando...';
+// Botón de solicitud
+document.getElementById('solicitarBtn').addEventListener('click', () => {
+  const cuit = document.getElementById('cuit').value.trim();
+  if (!validarCUIT(cuit)) {
+    alert('Por favor ingresa un CUIT/CUIL válido de 11 números.');
+    return;
+  }
 
-      fetch(`https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/${cuit}`)
-        .then(response => {
-          if (!response.ok) throw new Error('Error en la consulta');
-          return response.json();
-        })
-        .then(data => {
-          // Revisar si existe el array de deudas
-          const deudas = data?.Deudas || []; // Ajustar según la estructura real
-          if (deudas.length === 0) {
-            resultado.textContent = 'No hay registros de deudas para este CUIT.';
-            return;
-          }
+  // Plantilla de correo
+  const email = 'informes@veraz.com.ar'; // o Nosis
+  const subject = encodeURIComponent('Solicitud de informe comercial – Derecho de acceso');
+  const body = encodeURIComponent(
+    `Estimados,\n\nComo titular del CUIT ${cuit}, solicito mi informe comercial completo bajo derecho de acceso.\n\nGracias.\n`
+  );
 
-          // Crear tabla de resultados
-          let tabla = '<table><tr><th>Entidad</th><th>Monto Total</th><th>Días de atraso</th><th>Estado</th></tr>';
-          deudas.forEach(item => {
-            tabla += `<tr>
-                        <td>${item.Entidad || '-'}</td>
-                        <td>${item.MontoTotal || '-'}</td>
-                        <td>${item.DiasAtraso || '-'}</td>
-                        <td>${item.Estado || '-'}</td>
-                      </tr>`;
-          });
-          tabla += '</table>';
-          resultado.innerHTML = tabla;
-        })
-        .catch(error => {
-          console.error(error);
-          resultado.innerHTML = '<span class="error">Error al consultar el BCRA. Intente nuevamente.</span>';
-        });
-    });
-  </script>
+  // Abrir cliente de correo
+  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+
+  document.getElementById('resultado').innerHTML = `
+    <p>Se abrió tu cliente de correo con el mensaje listo para enviar. 
+    Luego podés subir tu informe aquí abajo para compartirlo con tu cuenta.</p>`;
+});
+
+// Zona de subida de archivos
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+
+uploadArea.addEventListener('click', () => fileInput.click());
+
+uploadArea.addEventListener('dragover', e => {
+  e.preventDefault();
+  uploadArea.classList.add('dragover');
+});
+
+uploadArea.addEventListener('dragleave', e => {
+  e.preventDefault();
+  uploadArea.classList.remove('dragover');
+});
+
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadArea.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+function handleFiles(files) {
+  if (files.length === 0) return;
+  const file = files[0];
+  document.getElementById('resultado').innerHTML = `
+    <p>Archivo "${file.name}" listo para procesar.</p>
+    <p>(Aquí podrías enviarlo a tu backend para almacenarlo o procesarlo)</p>`;
+}
+</script>
 
 </body>
 </html>
