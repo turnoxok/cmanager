@@ -1,4 +1,6 @@
-const API_BASE = "https://imagenes-y-video-production.up.railway.app"; // solo dominio
+
+
+const API_BASE = "https://imagenes-y-video-production.up.railway.app"; // 🚨 solo dominio, no pongas /convert
 
 const canvas = document.getElementById("editorCanvas");
 const ctx = canvas.getContext("2d");
@@ -9,7 +11,6 @@ let logoX = 0, logoY = 0, logoW = 100, logoH = 100;
 
 let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
-// --- DIBUJAR EDITOR ---
 function drawEditor() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (video && video.readyState >= 2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
@@ -18,37 +19,24 @@ function drawEditor() {
 }
 drawEditor();
 
-// --- CARGA DE VIDEO ---
+// --- carga de video ---
 document.getElementById("videoInput").addEventListener("change", e => {
-  const file = e.target.files[0]; 
-  if (!file) return;
-
+  const file = e.target.files[0]; if (!file) return;
   video = document.createElement("video");
   video.src = URL.createObjectURL(file);
-  video.loop = true; 
-  video.muted = true; 
-  video.play();
-
+  video.loop = true; video.muted = true; video.play();
   video.addEventListener("loadedmetadata", () => {
     videoRatio = video.videoWidth / video.videoHeight;
-    videoW = video.videoWidth; 
-    videoH = video.videoHeight;
-    canvas.width = videoW; 
-    canvas.height = videoH;
-    videoX = 0; 
-    videoY = 0;
-    logoX = videoW - 150; 
-    logoY = videoH - 150; 
-    logoW = 100; 
-    logoH = 100;
+    videoW = video.videoWidth; videoH = video.videoHeight;
+    canvas.width = videoW; canvas.height = videoH;
+    videoX = 0; videoY = 0;
+    logoX = videoW - 150; logoY = videoH - 150; logoW = 100; logoH = 100;
   });
 });
 
-// --- CARGA DE LOGO ---
+// --- carga de logo ---
 document.getElementById("logoInput").addEventListener("change", e => {
-  const file = e.target.files[0]; 
-  if (!file) return;
-
+  const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
     logo = new Image();
@@ -63,7 +51,7 @@ document.getElementById("logoInput").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-// --- FUNCIONES DE DRAG & PINCH ---
+// --- drag & drop logo ---
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   if (e.touches) {
@@ -81,14 +69,9 @@ function getPos(e) {
 
 function startDrag(e) {
   const [x, y] = getPos(e);
-  if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) {
-    dragTarget = "logo";
-  } else {
-    dragTarget = null;
-  }
-  dragging = true; 
-  startX = x; 
-  startY = y;
+  if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
+  else dragTarget = null;
+  dragging = true; startX = x; startY = y;
 
   if (e.touches && e.touches.length === 2) {
     lastDist = Math.hypot(
@@ -100,10 +83,6 @@ function startDrag(e) {
 
 function moveDrag(e) {
   if (!dragging) return;
-
-  // prevenir zoom de página solo en pinch
-  if (e.touches && e.touches.length === 2) e.preventDefault();
-
   const [x, y] = getPos(e);
   const dx = x - startX, dy = y - startY;
 
@@ -117,19 +96,9 @@ function moveDrag(e) {
       const cx = logoX + logoW / 2, cy = logoY + logoH / 2;
       let newW = logoW * zoom;
       let newH = logoH * zoom;
-
-      // Limitar tamaño del logo
-      if (newW > videoW) { 
-        newW = videoW; 
-        newH = newW * (logo.height / logo.width); 
-      }
-      if (newH > videoH) { 
-        newH = videoH; 
-        newW = newH * (logo.width / logo.height); 
-      }
-
-      logoW = newW; 
-      logoH = newH;
+      if (newW > videoW) { newW = videoW; newH = newW * (logo.height / logo.width); }
+      if (newH > videoH) { newH = videoH; newW = newH * (logo.width / logo.height); }
+      logoW = newW; logoH = newH;
       logoX = Math.min(Math.max(0, cx - logoW / 2), videoW - logoW);
       logoY = Math.min(Math.max(0, cy - logoH / 2), videoH - logoH);
     }
@@ -140,39 +109,29 @@ function moveDrag(e) {
       logoY = Math.min(Math.max(0, logoY + dy), videoH - logoH);
     }
   }
-
-  startX = x; 
-  startY = y;
+  startX = x; startY = y;
 }
+function endDrag() { dragging = false; lastDist = null; }
 
-function endDrag() { 
-  dragging = false; 
-  lastDist = null; 
-}
-
-// --- EVENTOS ---
 canvas.addEventListener("mousedown", startDrag);
 canvas.addEventListener("mousemove", moveDrag);
 canvas.addEventListener("mouseup", endDrag);
 canvas.addEventListener("mouseleave", endDrag);
 canvas.addEventListener("touchstart", startDrag);
-canvas.addEventListener("touchmove", moveDrag, { passive: false });
+canvas.addEventListener("touchmove", moveDrag);
 canvas.addEventListener("touchend", endDrag);
 canvas.addEventListener("touchcancel", endDrag);
 
-// --- EXPORTAR CON BARRA ---
+// --- exportar con barra ---
 document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video || !logo) return alert("Subí video y logo primero.");
 
-  // ✅ usar el validado/comprimido de video_safe.js si existe
-  const videoInputFile = document.getElementById("videoInput").files[0];
-  const videoFile = window.finalVideoFile || videoInputFile;
-
+  const videoFile = document.getElementById("videoInput").files[0];
   const logoFile = document.getElementById("logoInput").files[0];
 
   const formData = new FormData();
   formData.append("video", videoFile);
-  if (logoFile) formData.append("logo", logoFile);
+  formData.append("logo", logoFile);
   formData.append("logoX", Math.round(logoX));
   formData.append("logoY", Math.round(logoY));
   formData.append("logoWidth", Math.round(logoW));
@@ -184,20 +143,16 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const progressBar = document.getElementById("progressBar");
   progressBar.value = 0;
 
-  // EventSource real para progreso del backend
   const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
   evtSource.onmessage = async (e) => {
     const data = JSON.parse(e.data);
-
     if (data.percent) {
       progressBar.value = Math.round(data.percent);
     }
-
     if (data.end) {
       progressBar.value = 100;
       evtSource.close();
 
-      // descarga inmediata
       const dres = await fetch(`${API_BASE}/download/${jobId}`);
       const blob = await dres.blob();
       const a = document.createElement("a");
@@ -207,3 +162,4 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     }
   };
 });
+    
