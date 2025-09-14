@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Editor Video + Overlay</title>
+<title>Editor Video sobre GIF</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -16,65 +16,24 @@
     flex-direction: column;
     align-items: center;
   }
-  input[type="file"] {
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid #333;
-    background-color: #1e1e1e;
-    color: #f5f5f5;
-    cursor: pointer;
-    font-size: 14px;
-    margin: 5px 0;
-    width: 250px;
-    max-width: 90%;
-  }
-  input[type="file"]::file-selector-button {
-    background-color: #4CAF50;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    color: white;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  button {
-    padding: 14px 28px;
-    background: linear-gradient(135deg, #4CAF50, #2E8B57);
-    border: none;
-    color: white;
-    font-size: 16px;
-    font-weight: bold;
-    border-radius: 12px;
-    cursor: pointer;
-    margin-top: 15px;
+  input[type="file"], button {
+    margin: 10px 0;
   }
   #editorCanvas {
     border: 2px solid #444;
     border-radius: 12px;
     max-width: 100%;
     height: auto;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    touch-action: none;
     margin: 20px 0;
-    touch-action: none; /* gestos solo en canvas */
   }
-  #progressBar {
-    width: 80%;
-    max-width: 600px;
-    height: 20px;
-    border-radius: 12px;
-    overflow: hidden;
-    margin-top: 20px;
-    appearance: none;
-    background-color: #333;
-  }
-  #progressBar::-webkit-progress-value { background: linear-gradient(90deg,#4CAF50,#8BC34A);}
 </style>
 </head>
 <body>
-<h1>Editor de Video + Overlay GIF/Video</h1>
+<h1>Editor Video sobre GIF</h1>
 
 <input type="file" id="videoInput" accept="video/*"><br>
-<input type="file" id="overlayInput" accept="image/gif,video/*"><br>
+<input type="file" id="gifInput" accept="image/gif"><br>
 
 <canvas id="editorCanvas"></canvas><br>
 
@@ -87,175 +46,163 @@ const API_BASE = "https://imagenes-y-video-production.up.railway.app";
 const canvas = document.getElementById("editorCanvas");
 const ctx = canvas.getContext("2d");
 
-let video = null;
-let overlay = null;
+let video = null, gif = null;
+let videoX = 0, videoY = 0, videoW = 0, videoH = 0;
+let gifX = 0, gifY = 0, gifW = 150, gifH = 150;
 
-let videoX=0, videoY=0, videoW=0, videoH=0;
-let overlayX=0, overlayY=0, overlayW=100, overlayH=100;
+let dragging = false, dragTarget = null, startX = 0, startY = 0, lastDist = null;
 
-let dragging=false, dragTarget=null, startX=0, startY=0, lastDist=null;
-
-// --- dibujar editor ---
+// --- dibujar canvas ---
 function drawEditor() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(video && video.readyState>=2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
-  if(overlay){
-    ctx.drawImage(overlay, overlayX, overlayY, overlayW, overlayH);
-  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (video && video.readyState >= 2) ctx.drawImage(video, videoX, videoY, videoW, videoH);
+  if (gif) ctx.drawImage(gif, gifX, gifY, gifW, gifH);
   requestAnimationFrame(drawEditor);
 }
 drawEditor();
 
 // --- carga video ---
-document.getElementById("videoInput").addEventListener("change", e=>{
-  const file=e.target.files[0]; if(!file) return;
+document.getElementById("videoInput").addEventListener("change", e => {
+  const file = e.target.files[0]; if (!file) return;
   video = document.createElement("video");
   video.src = URL.createObjectURL(file);
-  video.loop=true; video.muted=true; video.play();
-  video.addEventListener("loadedmetadata", ()=>{
+  video.loop = true; video.muted = true; video.play();
+  video.addEventListener("loadedmetadata", () => {
     videoW = video.videoWidth; videoH = video.videoHeight;
-    canvas.width=videoW; canvas.height=videoH;
-    videoX=0; videoY=0;
-    overlayX=videoW-150; overlayY=videoH-150; overlayW=100; overlayH=100;
+    canvas.width = videoW; canvas.height = videoH;
+    videoX = 0; videoY = 0;
+    gifX = videoW - gifW - 10; gifY = videoH - gifH - 10;
   });
 });
 
-// --- carga overlay ---
-document.getElementById("overlayInput").addEventListener("change", e=>{
-  const file=e.target.files[0]; if(!file) return;
-  const url = URL.createObjectURL(file);
-
-  if(file.type.startsWith("video/")) {
-    overlay = document.createElement("video");
-    overlay.src=url;
-    overlay.loop=true; // 🔁 repetir
-    overlay.muted=true;
-    overlay.play();
-    overlay.addEventListener("loadedmetadata", ()=>{
-      overlayW=overlay.videoWidth/4;
-      overlayH=overlay.videoHeight/4;
-      overlayX=videoW-overlayW-10;
-      overlayY=videoH-overlayH-10;
-    });
-  } else {
-    // Para GIF: usar Image normal pero actualizar continuamente
-    overlay = new Image();
-    overlay.src = url;
-
-    // canvas intermedio para GIF animado
-    const gifCanvas = document.createElement("canvas");
-    const gifCtx = gifCanvas.getContext("2d");
-
-    overlay.onload = () => {
-      overlayW = overlay.width/4;
-      overlayH = overlay.height/4;
-      overlayX = videoW-overlayW-10;
-      overlayY = videoH-overlayH-10;
-
-      // Repetir dibujado
-      const drawGIF = () => {
-        gifCtx.clearRect(0,0,gifCanvas.width,gifCanvas.height);
-        gifCtx.drawImage(overlay, 0,0);
-        requestAnimationFrame(drawGIF);
-      };
-      drawGIF();
-    };
-  }
+// --- carga gif ---
+document.getElementById("gifInput").addEventListener("change", e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    gif = new Image();
+    gif.src = ev.target.result;
+    gif.onload = () => {
+      gifH = gifW * (gif.height / gif.width);
+      gifX = canvas.width - gifW - 10;
+      gifY = canvas.height - gifH - 10;
+    }
+  };
+  reader.readAsDataURL(file);
 });
 
 // --- drag & pinch ---
-function getPos(e){
-  const rect=canvas.getBoundingClientRect();
-  if(e.touches){
-    return [(e.touches[0].clientX-rect.left)*(canvas.width/rect.width),
-            (e.touches[0].clientY-rect.top)*(canvas.height/rect.height)];
-  }else{
-    return [(e.clientX-rect.left)*(canvas.width/rect.width),
-            (e.clientY-rect.top)*(canvas.height/rect.height)];
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  if (e.touches) {
+    return [
+      (e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
+      (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)
+    ];
+  } else {
+    return [
+      (e.clientX - rect.left) * (canvas.width / rect.width),
+      (e.clientY - rect.top) * (canvas.height / rect.height)
+    ];
   }
 }
-function startDrag(e){
-  const [x,y]=getPos(e);
-  if(overlay && x>=overlayX && x<=overlayX+overlayW && y>=overlayY && y<=overlayY+overlayH) dragTarget="overlay";
-  else dragTarget=null;
-  dragging=true; startX=x; startY=y;
-  if(e.touches && e.touches.length===2){
-    lastDist=Math.hypot(
-      e.touches[0].clientX-e.touches[1].clientX,
-      e.touches[0].clientY-e.touches[1].clientY
+
+function startDrag(e) {
+  const [x, y] = getPos(e);
+  if (gif && x >= gifX && x <= gifX + gifW && y >= gifY && y <= gifY + gifH) dragTarget = "gif";
+  else if (video && x >= videoX && x <= videoX + videoW && y >= videoY && y <= videoY + videoH) dragTarget = "video";
+  else dragTarget = null;
+  dragging = true; startX = x; startY = y;
+
+  if (e.touches && e.touches.length === 2) {
+    lastDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
     );
   }
 }
-function moveDrag(e){
-  if(!dragging) return;
-  const [x,y]=getPos(e);
-  const dx=x-startX, dy=y-startY;
-  if(e.touches && e.touches.length===2 && lastDist){
-    const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
-                          e.touches[0].clientY-e.touches[1].clientY);
-    const zoom=dist/lastDist;
-    if(dragTarget==="overlay"){
-      const cx=overlayX+overlayW/2, cy=overlayY+overlayH/2;
-      let newW=overlayW*zoom, newH=overlayH*zoom;
-      if(newW>videoW){newW=videoW; newH=newW*(overlay.height/overlay.width);}
-      if(newH>videoH){newH=videoH; newW=newH*(overlay.width/overlay.height);}
-      overlayW=newW; overlayH=newH;
-      overlayX=Math.min(Math.max(0,cx-overlayW/2),videoW-overlayW);
-      overlayY=Math.min(Math.max(0,cy-overlayH/2),videoH-overlayH);
+
+function moveDrag(e) {
+  if (!dragging) return;
+  const [x, y] = getPos(e);
+  const dx = x - startX, dy = y - startY;
+
+  if (e.touches && e.touches.length === 2 && lastDist) {
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const zoom = dist / lastDist;
+    if (dragTarget === "gif") {
+      const cx = gifX + gifW / 2, cy = gifY + gifH / 2;
+      gifW *= zoom; gifH *= zoom;
+      gifX = cx - gifW / 2; gifY = cy - gifH / 2;
     }
-    lastDist=dist;
-  }else{
-    if(dragTarget==="overlay"){
-      overlayX=Math.min(Math.max(0,overlayX+dx),videoW-overlayW);
-      overlayY=Math.min(Math.max(0,overlayY+dy),videoH-overlayH);
+    if (dragTarget === "video") {
+      const cx = videoX + videoW / 2, cy = videoY + videoH / 2;
+      videoW *= zoom; videoH *= zoom;
+      videoX = cx - videoW / 2; videoY = cy - videoH / 2;
+    }
+    lastDist = dist;
+  } else {
+    if (dragTarget === "gif") {
+      gifX += dx; gifY += dy;
+      gifX = Math.min(Math.max(0, gifX), videoW - gifW);
+      gifY = Math.min(Math.max(0, gifY), videoH - gifH);
+    }
+    if (dragTarget === "video") {
+      videoX += dx; videoY += dy;
+      videoX = Math.min(Math.max(canvas.width - videoW, videoX), 0);
+      videoY = Math.min(Math.max(canvas.height - videoH, videoY), 0);
     }
   }
-  startX=x; startY=y;
+  startX = x; startY = y;
 }
-function endDrag(){dragging=false; lastDist=null;}
 
-canvas.addEventListener("mousedown",startDrag);
-canvas.addEventListener("mousemove",moveDrag);
-canvas.addEventListener("mouseup",endDrag);
-canvas.addEventListener("mouseleave",endDrag);
-canvas.addEventListener("touchstart",startDrag);
-canvas.addEventListener("touchmove",moveDrag,{passive:false});
-canvas.addEventListener("touchend",endDrag);
-canvas.addEventListener("touchcancel",endDrag);
+function endDrag() { dragging = false; lastDist = null; }
+
+canvas.addEventListener("mousedown", startDrag);
+canvas.addEventListener("mousemove", moveDrag);
+canvas.addEventListener("mouseup", endDrag);
+canvas.addEventListener("mouseleave", endDrag);
+
+canvas.addEventListener("touchstart", startDrag);
+canvas.addEventListener("touchmove", moveDrag, { passive: false });
+canvas.addEventListener("touchend", endDrag);
+canvas.addEventListener("touchcancel", endDrag);
 
 // --- exportar ---
-document.getElementById("exportBtn").addEventListener("click", async ()=>{
-  if(!video || !overlay) return alert("Subí video y overlay primero.");
+document.getElementById("exportBtn").addEventListener("click", async () => {
+  if (!video || !gif) return alert("Subí video y GIF primero.");
+  const videoFile = document.getElementById("videoInput").files[0];
+  const gifFile = document.getElementById("gifInput").files[0];
 
-  const videoFile=document.getElementById("videoInput").files[0];
-  const overlayFile=document.getElementById("overlayInput").files[0];
+  const formData = new FormData();
+  formData.append("video", videoFile);
+  formData.append("logo", gifFile); // reutilizamos el campo "logo"
+  formData.append("logoX", Math.round(gifX));
+  formData.append("logoY", Math.round(gifY));
+  formData.append("logoWidth", Math.round(gifW));
+  formData.append("logoHeight", Math.round(gifH));
 
-  const formData=new FormData();
-  formData.append("video",videoFile);
-  formData.append("logo",overlayFile); // backend recibe "logo" mismo nombre
-  formData.append("logoX",Math.round(overlayX));
-  formData.append("logoY",Math.round(overlayY));
-  formData.append("logoWidth",Math.round(overlayW));
-  formData.append("logoHeight",Math.round(overlayH));
+  const res = await fetch(`${API_BASE}/convert`, { method: "POST", body: formData });
+  const { jobId } = await res.json();
 
-  const res=await fetch(`${API_BASE}/convert`,{method:"POST",body:formData});
-  const {jobId}=await res.json();
+  const progressBar = document.getElementById("progressBar");
+  progressBar.value = 0;
 
-  const progressBar=document.getElementById("progressBar");
-  progressBar.value=0;
-
-  const evtSource=new EventSource(`${API_BASE}/progress/${jobId}`);
-  evtSource.onmessage=async (e)=>{
-    const data=JSON.parse(e.data);
-    if(data.percent) progressBar.value=Math.round(data.percent);
-    if(data.end){
-      progressBar.value=100;
+  const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
+  evtSource.onmessage = async (e) => {
+    const data = JSON.parse(e.data);
+    if (data.percent) progressBar.value = Math.round(data.percent);
+    if (data.end) {
+      progressBar.value = 100;
       evtSource.close();
-      const dres=await fetch(`${API_BASE}/download/${jobId}`);
-      const blob=await dres.blob();
-      const a=document.createElement("a");
-      a.href=URL.createObjectURL(blob);
-      a.download="video_final.mp4";
+      const dres = await fetch(`${API_BASE}/download/${jobId}`);
+      const blob = await dres.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "video_final.mp4";
       a.click();
     }
   };
