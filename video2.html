@@ -2,41 +2,20 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Editor Video + Logo</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<style>
-  body { font-family: sans-serif; text-align: center; margin: 0; padding: 20px; background: #121212; color: #f5f5f5; }
-  h1 { font-size: 1.4rem; margin-bottom: 1rem; }
-  input, select, button {
-    display: block; width: 100%; max-width: 320px;
-    margin: 10px auto; padding: 12px;
-    font-size: 1rem; border-radius: 8px; border: 1px solid #ccc;
-  }
-  button { background: #4CAF50; color: white; font-weight: bold; border: none; cursor:pointer; }
-  button:active { background: #2E8B57; }
-  #editorCanvas { margin: 20px auto; max-width: 100%; border: 2px dashed #666; touch-action: none; background: #000; }
-  #progressBar { width: 80%; max-width: 320px; height: 15px; margin-top:10px; }
-</style>
 </head>
 <body>
 
-<h1>Editor Video + Logo</h1>
-
 <input type="file" id="videoInput" accept="video/*">
 <input type="file" id="logoInput" accept="image/png">
-<select id="ratioSelect">
-  <option value="1">1080x1080 (cuadrado)</option>
-  <option value="0.5625">1080x1920 (story)</option>
-  <option value="0.75">1080x1350 (vertical)</option>
-</select>
-<button id="exportBtn">📥 Exportar Video</button>
-<progress id="progressBar" value="0" max="100"></progress>
-<canvas id="editorCanvas"></canvas>
+<canvas id="editorCanvas" width="1080" height="1350" style="border:1px solid #ccc;"></canvas>
+<button id="exportBtn">Exportar Video</button>
 
-<!-- ffmpeg.wasm UMD global -->
+<!-- Primero UMD de ffmpeg -->
 <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.umd.min.js"></script>
+
+<!-- Luego tu JS -->
 <script src="video2.js"></script>
-
-
 </body>
 </html>
