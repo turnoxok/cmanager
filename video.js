@@ -135,12 +135,16 @@ canvas.addEventListener("touchcancel", endDrag);
 document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video || !logo) return alert("Subí video y logo primero.");
 
-  const videoFile = document.getElementById("videoInput").files[0];
-  const logoFile = document.getElementById("logoInput").files[0];
+  // Usar el validado/comprimido de video_safe.js si existe
+const videoInputFile = document.getElementById("videoInput").files[0];
+const videoFile = window.finalVideoFile || videoInputFile;
 
-  const formData = new FormData();
-  formData.append("video", videoFile);
-  formData.append("logo", logoFile);
+const logoFile = document.getElementById("logoInput").files[0];
+
+const formData = new FormData();
+formData.append("video", videoFile);
+if (logoFile) formData.append("logo", logoFile);
+
   formData.append("logoX", Math.round(logoX));
   formData.append("logoY", Math.round(logoY));
   formData.append("logoWidth", Math.round(logoW));
