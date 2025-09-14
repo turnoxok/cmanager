@@ -20,22 +20,35 @@ drawEditor();
 
 // --- CARGA DE VIDEO ---
 document.getElementById("videoInput").addEventListener("change", e => {
-  const file = e.target.files[0]; if (!file) return;
+  const file = e.target.files[0]; 
+  if (!file) return;
+
   video = document.createElement("video");
   video.src = URL.createObjectURL(file);
-  video.loop = true; video.muted = true; video.play();
+  video.loop = true; 
+  video.muted = true; 
+  video.play();
+
   video.addEventListener("loadedmetadata", () => {
     videoRatio = video.videoWidth / video.videoHeight;
-    videoW = video.videoWidth; videoH = video.videoHeight;
-    canvas.width = videoW; canvas.height = videoH;
-    videoX = 0; videoY = 0;
-    logoX = videoW - 150; logoY = videoH - 150; logoW = 100; logoH = 100;
+    videoW = video.videoWidth; 
+    videoH = video.videoHeight;
+    canvas.width = videoW; 
+    canvas.height = videoH;
+    videoX = 0; 
+    videoY = 0;
+    logoX = videoW - 150; 
+    logoY = videoH - 150; 
+    logoW = 100; 
+    logoH = 100;
   });
 });
 
 // --- CARGA DE LOGO ---
 document.getElementById("logoInput").addEventListener("change", e => {
-  const file = e.target.files[0]; if (!file) return;
+  const file = e.target.files[0]; 
+  if (!file) return;
+
   const reader = new FileReader();
   reader.onload = ev => {
     logo = new Image();
@@ -68,9 +81,14 @@ function getPos(e) {
 
 function startDrag(e) {
   const [x, y] = getPos(e);
-  if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) dragTarget = "logo";
-  else dragTarget = null;
-  dragging = true; startX = x; startY = y;
+  if (logo && x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH) {
+    dragTarget = "logo";
+  } else {
+    dragTarget = null;
+  }
+  dragging = true; 
+  startX = x; 
+  startY = y;
 
   if (e.touches && e.touches.length === 2) {
     lastDist = Math.hypot(
@@ -83,7 +101,7 @@ function startDrag(e) {
 function moveDrag(e) {
   if (!dragging) return;
 
-  // NUEVO: prevenir zoom de página solo en pinch
+  // prevenir zoom de página solo en pinch
   if (e.touches && e.touches.length === 2) e.preventDefault();
 
   const [x, y] = getPos(e);
@@ -101,10 +119,17 @@ function moveDrag(e) {
       let newH = logoH * zoom;
 
       // Limitar tamaño del logo
-      if (newW > videoW) { newW = videoW; newH = newW * (logo.height / logo.width); }
-      if (newH > videoH) { newH = videoH; newW = newH * (logo.width / logo.height); }
+      if (newW > videoW) { 
+        newW = videoW; 
+        newH = newW * (logo.height / logo.width); 
+      }
+      if (newH > videoH) { 
+        newH = videoH; 
+        newW = newH * (logo.width / logo.height); 
+      }
 
-      logoW = newW; logoH = newH;
+      logoW = newW; 
+      logoH = newH;
       logoX = Math.min(Math.max(0, cx - logoW / 2), videoW - logoW);
       logoY = Math.min(Math.max(0, cy - logoH / 2), videoH - logoH);
     }
@@ -116,10 +141,14 @@ function moveDrag(e) {
     }
   }
 
-  startX = x; startY = y;
+  startX = x; 
+  startY = y;
 }
 
-function endDrag() { dragging = false; lastDist = null; }
+function endDrag() { 
+  dragging = false; 
+  lastDist = null; 
+}
 
 // --- EVENTOS ---
 canvas.addEventListener("mousedown", startDrag);
@@ -135,16 +164,15 @@ canvas.addEventListener("touchcancel", endDrag);
 document.getElementById("exportBtn").addEventListener("click", async () => {
   if (!video || !logo) return alert("Subí video y logo primero.");
 
-  // Usar el validado/comprimido de video_safe.js si existe
-const videoInputFile = document.getElementById("videoInput").files[0];
-const videoFile = window.finalVideoFile || videoInputFile;
+  // ✅ usar el validado/comprimido de video_safe.js si existe
+  const videoInputFile = document.getElementById("videoInput").files[0];
+  const videoFile = window.finalVideoFile || videoInputFile;
 
-const logoFile = document.getElementById("logoInput").files[0];
+  const logoFile = document.getElementById("logoInput").files[0];
 
-const formData = new FormData();
-formData.append("video", videoFile);
-if (logoFile) formData.append("logo", logoFile);
-
+  const formData = new FormData();
+  formData.append("video", videoFile);
+  if (logoFile) formData.append("logo", logoFile);
   formData.append("logoX", Math.round(logoX));
   formData.append("logoY", Math.round(logoY));
   formData.append("logoWidth", Math.round(logoW));
@@ -155,8 +183,6 @@ if (logoFile) formData.append("logo", logoFile);
 
   const progressBar = document.getElementById("progressBar");
   progressBar.value = 0;
-
-  
 
   // EventSource real para progreso del backend
   const evtSource = new EventSource(`${API_BASE}/progress/${jobId}`);
